@@ -9,8 +9,11 @@ import { DashboardPage } from "@/pages/Dashboard";
 import { GoalsPage } from "@/pages/Goals";
 import { RoutinesPage } from "@/pages/Routines";
 import { SettingsPage } from "@/pages/Settings";
+import { SkillsPage } from "@/pages/Skills";
 import { TaskDetailPage } from "@/pages/TaskDetail";
 import { TasksPage } from "@/pages/Tasks";
+import { WorkflowsPage } from "@/pages/Workflows";
+import { WorkflowRunPage } from "@/pages/WorkflowRun";
 import { OrgPage } from "@/pages/Org";
 import { ActivityPage } from "@/pages/Activity";
 
@@ -26,6 +29,9 @@ export function App() {
         <Route path="/tasks" element={<TasksPage />} />
         <Route path="/tasks/:taskId" element={<TaskDetailPage />} />
         <Route path="/goals" element={<GoalsPage />} />
+        <Route path="/skills" element={<SkillsPage />} />
+        <Route path="/workflows" element={<WorkflowsPage />} />
+        <Route path="/workflows/:workflowId/runs/:runId" element={<WorkflowRunPage />} />
         <Route path="/org" element={<OrgPage />} />
         <Route path="/routines" element={<RoutinesPage />} />
         <Route path="/costs" element={<CostsPage />} />

@@ -211,6 +211,53 @@ export interface CostsData {
   breakdown: Array<{ agentId: string; agentName: string; amount: number; color: string }>;
 }
 
+export interface Skill {
+  id: string;
+  name: string;
+  description: string;
+  content: string;
+  filePath: string | null;
+  createdAt: string;
+  updatedAt: string;
+  agentCount?: number;
+}
+
+export interface WorkflowStep {
+  agentId: string;
+  prompt: string;
+  config?: Record<string, unknown>;
+}
+
+export interface Workflow {
+  id: string;
+  name: string;
+  description: string;
+  steps: WorkflowStep[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WorkflowStepResult {
+  stepIndex: number;
+  agentId: string;
+  status: string;
+  output: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+}
+
+export interface WorkflowRun {
+  id: string;
+  workflowId: string;
+  status: string;
+  input: string;
+  currentStep: number;
+  results: WorkflowStepResult[];
+  startedAt: string | null;
+  finishedAt: string | null;
+  createdAt: string;
+}
+
 export interface SettingsData {
   company: {
     name: string;

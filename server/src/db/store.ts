@@ -20,10 +20,15 @@ import type {
   RoutineRun,
   RoutineScheduleType,
   SettingsResponse,
+  SkillRecord,
   TaskComment,
   TaskRecord,
   TaskStatus,
   TaskWorklog,
+  WorkflowRecord,
+  WorkflowRunRecord,
+  WorkflowStepDef,
+  WorkflowStepResult,
 } from "../types.js";
 
 type Row = Record<string, unknown>;
@@ -962,5 +967,218 @@ export const store = {
       SET status = ?, last_heartbeat_at = ?, updated_at = ?
       WHERE id = ?
     `).run(input.status, now, now, input.agentId);
+  },
+
+  // ── Skills ──
+
+  listSkills(db: Database.Database): SkillRecord[] {
+    return db.prepare("SELECT * FROM skills ORDER BY name").all().map((row: unknown) => {
+      const r = row as Row;
+      return {
+        id: String(r.id),
+        name: String(r.name),
+        description: String(r.description ?? ""),
+        content: String(r.content ?? ""),
+        filePath: r.file_path ? String(r.file_path) : null,
+        createdAt: String(r.created_at),
+        updatedAt: String(r.updated_at),
+      };
+    });
+  },
+
+  getSkill(db: Database.Database, skillId: string): SkillRecord | null {
+    const r = db.prepare("SELECT * FROM skills WHERE id = ?").get(skillId) as Row | undefined;
+    if (!r) return null;
+    return {
+      id: String(r.id),
+      name: String(r.name),
+      description: String(r.description ?? ""),
+      content: String(r.content ?? ""),
+      filePath: r.file_path ? String(r.file_path) : null,
+      createdAt: String(r.created_at),
+      updatedAt: String(r.updated_at),
+    };
+  },
+
+  saveSkill(db: Database.Database, payload: Partial<SkillRecord>): SkillRecord | null {
+    const id = payload.id ?? randomUUID();
+    const now = new Date().toISOString();
+    const current = db.prepare("SELECT * FROM skills WHERE id = ?").get(id) as Row | undefined;
+    const next = {
+      id,
+      name: payload.name ?? current?.name ?? "新規スキル",
+      description: payload.description ?? current?.description ?? "",
+      content: payload.content ?? current?.content ?? "",
+      filePath: payload.filePath ?? (current?.file_path ? String(current.file_path) : null),
+      createdAt: current?.created_at ? String(current.created_at) : now,
+      updatedAt: now,
+    };
+    db.prepare(`
+      INSERT INTO skills (id, name, description, content, file_path, created_at, updated_at)
+      VALUES (@id, @name, @description, @content, @filePath, @createdAt, @updatedAt)
+      ON CONFLICT(id) DO UPDATE SET
+        name = excluded.name,
+        description = excluded.description,
+        content = excluded.content,
+        file_path = excluded.file_path,
+        updated_at = excluded.updated_at
+    `).run(next);
+    return this.getSkill(db, id);
+  },
+
+  deleteSkill(db: Database.Database, skillId: string) {
+    db.prepare("DELETE FROM agent_skills WHERE skill_id = ?").run(skillId);
+    db.prepare("DELETE FROM skills WHERE id = ?").run(skillId);
+  },
+
+  getAgentSkills(db: Database.Database, agentId: string): SkillRecord[] {
+    return db.prepare(`
+      SELECT s.* FROM skills s
+      INNER JOIN agent_skills ags ON ags.skill_id = s.id
+      WHERE ags.agent_id = ?
+      ORDER BY s.name
+    `).all(agentId).map((row: unknown) => {
+      const r = row as Row;
+      return {
+        id: String(r.id),
+        name: String(r.name),
+        description: String(r.description ?? ""),
+        content: String(r.content ?? ""),
+        filePath: r.file_path ? String(r.file_path) : null,
+        createdAt: String(r.created_at),
+        updatedAt: String(r.updated_at),
+      };
+    });
+  },
+
+  setAgentSkills(db: Database.Database, agentId: string, skillIds: string[]) {
+    db.prepare("DELETE FROM agent_skills WHERE agent_id = ?").run(agentId);
+    const insert = db.prepare("INSERT INTO agent_skills (agent_id, skill_id) VALUES (?, ?)");
+    for (const skillId of skillIds) {
+      insert.run(agentId, skillId);
+    }
+  },
+
+  getSkillAgentCount(db: Database.Database, skillId: string): number {
+    const r = db.prepare("SELECT COUNT(*) AS cnt FROM agent_skills WHERE skill_id = ?").get(skillId) as Row;
+    return Number(r.cnt);
+  },
+
+  // ── Workflows ──
+
+  listWorkflows(db: Database.Database): WorkflowRecord[] {
+    return db.prepare("SELECT * FROM workflows ORDER BY updated_at DESC").all().map((row: unknown) => {
+      const r = row as Row;
+      return {
+        id: String(r.id),
+        name: String(r.name),
+        description: String(r.description ?? ""),
+        steps: parseJson<WorkflowStepDef[]>(r.steps_json, []),
+        createdAt: String(r.created_at),
+        updatedAt: String(r.updated_at),
+      };
+    });
+  },
+
+  getWorkflow(db: Database.Database, workflowId: string): WorkflowRecord | null {
+    const r = db.prepare("SELECT * FROM workflows WHERE id = ?").get(workflowId) as Row | undefined;
+    if (!r) return null;
+    return {
+      id: String(r.id),
+      name: String(r.name),
+      description: String(r.description ?? ""),
+      steps: parseJson<WorkflowStepDef[]>(r.steps_json, []),
+      createdAt: String(r.created_at),
+      updatedAt: String(r.updated_at),
+    };
+  },
+
+  saveWorkflow(db: Database.Database, payload: Partial<WorkflowRecord>): WorkflowRecord | null {
+    const id = payload.id ?? randomUUID();
+    const now = new Date().toISOString();
+    const current = db.prepare("SELECT * FROM workflows WHERE id = ?").get(id) as Row | undefined;
+    const next = {
+      id,
+      name: payload.name ?? current?.name ?? "新規ワークフロー",
+      description: payload.description ?? current?.description ?? "",
+      stepsJson: JSON.stringify(payload.steps ?? parseJson<WorkflowStepDef[]>(current?.steps_json, [])),
+      createdAt: current?.created_at ? String(current.created_at) : now,
+      updatedAt: now,
+    };
+    db.prepare(`
+      INSERT INTO workflows (id, name, description, steps_json, created_at, updated_at)
+      VALUES (@id, @name, @description, @stepsJson, @createdAt, @updatedAt)
+      ON CONFLICT(id) DO UPDATE SET
+        name = excluded.name,
+        description = excluded.description,
+        steps_json = excluded.steps_json,
+        updated_at = excluded.updated_at
+    `).run(next);
+    return this.getWorkflow(db, id);
+  },
+
+  deleteWorkflow(db: Database.Database, workflowId: string) {
+    db.prepare("DELETE FROM workflow_runs WHERE workflow_id = ?").run(workflowId);
+    db.prepare("DELETE FROM workflows WHERE id = ?").run(workflowId);
+  },
+
+  listWorkflowRuns(db: Database.Database, workflowId: string): WorkflowRunRecord[] {
+    return db.prepare("SELECT * FROM workflow_runs WHERE workflow_id = ? ORDER BY created_at DESC").all(workflowId).map((row: unknown) => {
+      const r = row as Row;
+      return {
+        id: String(r.id),
+        workflowId: String(r.workflow_id),
+        status: String(r.status),
+        input: String(r.input ?? ""),
+        currentStep: Number(r.current_step),
+        results: parseJson<WorkflowStepResult[]>(r.results_json, []),
+        startedAt: r.started_at ? String(r.started_at) : null,
+        finishedAt: r.finished_at ? String(r.finished_at) : null,
+        createdAt: String(r.created_at),
+      };
+    });
+  },
+
+  getWorkflowRun(db: Database.Database, runId: string): WorkflowRunRecord | null {
+    const r = db.prepare("SELECT * FROM workflow_runs WHERE id = ?").get(runId) as Row | undefined;
+    if (!r) return null;
+    return {
+      id: String(r.id),
+      workflowId: String(r.workflow_id),
+      status: String(r.status),
+      input: String(r.input ?? ""),
+      currentStep: Number(r.current_step),
+      results: parseJson<WorkflowStepResult[]>(r.results_json, []),
+      startedAt: r.started_at ? String(r.started_at) : null,
+      finishedAt: r.finished_at ? String(r.finished_at) : null,
+      createdAt: String(r.created_at),
+    };
+  },
+
+  createWorkflowRun(db: Database.Database, workflowId: string, input: string): WorkflowRunRecord | null {
+    const id = randomUUID();
+    const now = new Date().toISOString();
+    db.prepare(`
+      INSERT INTO workflow_runs (id, workflow_id, status, input, current_step, results_json, started_at, created_at)
+      VALUES (?, ?, 'running', ?, 0, '[]', ?, ?)
+    `).run(id, workflowId, input, now, now);
+    return this.getWorkflowRun(db, id);
+  },
+
+  updateWorkflowRun(db: Database.Database, runId: string, update: Partial<WorkflowRunRecord>) {
+    const current = this.getWorkflowRun(db, runId);
+    if (!current) return null;
+    const next = {
+      status: update.status ?? current.status,
+      currentStep: update.currentStep ?? current.currentStep,
+      resultsJson: JSON.stringify(update.results ?? current.results),
+      finishedAt: update.finishedAt ?? current.finishedAt,
+    };
+    db.prepare(`
+      UPDATE workflow_runs
+      SET status = @status, current_step = @currentStep, results_json = @resultsJson, finished_at = @finishedAt
+      WHERE id = ?
+    `).run({ ...next }, runId);
+    return this.getWorkflowRun(db, runId);
   },
 };

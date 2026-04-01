@@ -1,4 +1,4 @@
-import { BellDot, Bot, ClipboardList, Coins, Flag, Gauge, Network, Repeat, ScrollText, Settings2 } from "lucide-react";
+import { BellDot, BookOpen, Bot, ClipboardList, Coins, Flag, Gauge, GitBranch, Network, Repeat, ScrollText, Settings2 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "./ThemeToggle";
@@ -13,6 +13,8 @@ const items = [
   { to: "/routines", label: "ルーティン", icon: Repeat },
   { to: "/costs", label: "コスト", icon: Coins },
   { to: "/approvals", label: "承認", icon: BellDot },
+  { to: "/skills", label: "スキル", icon: BookOpen },
+  { to: "/workflows", label: "ワークフロー", icon: GitBranch },
   { to: "/settings", label: "設定", icon: Settings2 },
 ];
 

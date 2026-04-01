@@ -9,7 +9,10 @@ import type {
   Goal,
   Routine,
   SettingsData,
+  Skill,
   Task,
+  Workflow,
+  WorkflowRun,
 } from "@/lib/types";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -111,4 +114,20 @@ export const api = {
       entries: Array<{ name: string; type: "file" | "directory"; size: number }>;
     }>(`/api/filesystem/browse?path=${encodeURIComponent(dirPath)}`),
   drives: () => request<{ drives: string[] }>("/api/filesystem/drives"),
+  skills: () => request<{ skills: Skill[] }>("/api/skills"),
+  skill: (id: string) => request<Skill>(`/api/skills/${id}`),
+  createSkill: (payload: Partial<Skill>) => request<Skill>("/api/skills", { method: "POST", body: JSON.stringify(payload) }),
+  updateSkill: (id: string, payload: Partial<Skill>) => request<Skill>(`/api/skills/${id}`, { method: "PUT", body: JSON.stringify(payload) }),
+  deleteSkill: (id: string) => request<void>(`/api/skills/${id}`, { method: "DELETE" }),
+  importSkills: () => request<{ imported: string[] }>("/api/skills/import", { method: "POST" }),
+  agentSkills: (agentId: string) => request<{ skills: Skill[] }>(`/api/agents/${agentId}/skills`),
+  setAgentSkills: (agentId: string, skillIds: string[]) => request<{ skills: Skill[] }>(`/api/agents/${agentId}/skills`, { method: "POST", body: JSON.stringify({ skillIds }) }),
+  workflows: () => request<{ workflows: Workflow[] }>("/api/workflows"),
+  workflow: (id: string) => request<Workflow & { runs: WorkflowRun[] }>(`/api/workflows/${id}`),
+  createWorkflow: (payload: Partial<Workflow>) => request<Workflow>("/api/workflows", { method: "POST", body: JSON.stringify(payload) }),
+  updateWorkflow: (id: string, payload: Partial<Workflow>) => request<Workflow>(`/api/workflows/${id}`, { method: "PUT", body: JSON.stringify(payload) }),
+  deleteWorkflow: (id: string) => request<void>(`/api/workflows/${id}`, { method: "DELETE" }),
+  runWorkflow: (id: string, input: string) => request<WorkflowRun>(`/api/workflows/${id}/run`, { method: "POST", body: JSON.stringify({ input }) }),
+  workflowRuns: (id: string) => request<{ runs: WorkflowRun[] }>(`/api/workflows/${id}/runs`),
+  workflowRun: (runId: string) => request<WorkflowRun>(`/api/workflow-runs/${runId}`),
 };

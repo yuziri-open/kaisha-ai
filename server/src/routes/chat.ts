@@ -86,13 +86,17 @@ function mergeClaudeConfig(base: ClaudeAdapterConfig, override: ClaudeAdapterCon
   };
 }
 
-function buildPrompt(agentPrompt: string, message: string) {
-  const sections = [
-    agentPrompt.trim(),
-    "以降はユーザーとのチャットです。日本語で回答し、必要なときだけコードブロックを使ってください。",
-    `ユーザーメッセージ:\n${message.trim()}`,
-  ].filter(Boolean);
-  return sections.join("\n\n");
+function buildPrompt(agentPrompt: string, message: string, skillContents?: Array<{ name: string; content: string }>) {
+  const sections: string[] = [];
+  if (skillContents && skillContents.length > 0) {
+    for (const skill of skillContents) {
+      sections.push(`[スキル: ${skill.name}]\n${skill.content}`);
+    }
+  }
+  sections.push(`エージェント指示:\n${agentPrompt.trim()}`);
+  sections.push("以降はユーザーとのチャットです。日本語で回答し、必要なときだけコードブロックを使ってください。");
+  sections.push(`ユーザーメッセージ:\n${message.trim()}`);
+  return sections.filter(Boolean).join("\n\n");
 }
 
 async function startRun(
@@ -104,6 +108,7 @@ async function startRun(
     baseConfig: CodexAdapterConfig | ClaudeAdapterConfig;
     message: string;
     runId: string;
+    skillContents?: Array<{ name: string; content: string }>;
   },
 ) {
   const isClaudeAdapter = input.adapterType === "Claude Code";
@@ -146,7 +151,7 @@ async function startRun(
     });
   };
 
-  const fullPrompt = buildPrompt(input.agentPrompt, input.message);
+  const fullPrompt = buildPrompt(input.agentPrompt, input.message, input.skillContents);
 
   const executeAdapter = isClaudeAdapter
     ? executeClaude({
@@ -231,6 +236,10 @@ export function chatRoutes(context: AppContext) {
 
     const adapterType = agent.adapterType || "Codex";
     const isClaudeAdapter = adapterType === "Claude Code";
+    const skillContents = store.getAgentSkills(context.db, agent.id).map((skill) => ({
+      name: skill.name,
+      content: skill.content,
+    }));
 
     const effectiveConfig = isClaudeAdapter
       ? mergeClaudeConfig(
@@ -277,6 +286,7 @@ export function chatRoutes(context: AppContext) {
       baseConfig: effectiveConfig,
       message,
       runId: run.id,
+      skillContents,
     });
   };
 

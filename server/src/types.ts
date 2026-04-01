@@ -240,6 +240,52 @@ export interface SettingsResponse {
   };
 }
 
+export interface SkillRecord {
+  id: string;
+  name: string;
+  description: string;
+  content: string;
+  filePath: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WorkflowStepDef {
+  agentId: string;
+  prompt: string;
+  config?: Record<string, unknown>;
+}
+
+export interface WorkflowRecord {
+  id: string;
+  name: string;
+  description: string;
+  steps: WorkflowStepDef[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WorkflowStepResult {
+  stepIndex: number;
+  agentId: string;
+  status: string;
+  output: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+}
+
+export interface WorkflowRunRecord {
+  id: string;
+  workflowId: string;
+  status: string;
+  input: string;
+  currentStep: number;
+  results: WorkflowStepResult[];
+  startedAt: string | null;
+  finishedAt: string | null;
+  createdAt: string;
+}
+
 export interface AppContext {
   db: Database.Database;
   sse: SseService;

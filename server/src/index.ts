@@ -16,6 +16,8 @@ import { settingsRoutes } from "./routes/settings.js";
 import { taskRoutes } from "./routes/tasks.js";
 import { uploadRoutes, UPLOAD_DIR } from "./routes/upload.js";
 import { filesystemRoutes } from "./routes/filesystem.js";
+import { skillRoutes } from "./routes/skills.js";
+import { workflowRoutes } from "./routes/workflows.js";
 import { RoutineScheduler } from "./services/cron.js";
 import { HeartbeatService } from "./services/heartbeat.js";
 import { SseService } from "./services/sse.js";
@@ -75,6 +77,8 @@ app.use("/api", approvalRoutes(context));
 app.use("/api", settingsRoutes(context));
 app.use("/api", uploadRoutes(context));
 app.use("/api", filesystemRoutes(context));
+app.use("/api", skillRoutes(context));
+app.use("/api", workflowRoutes(context));
 
 // Serve uploaded files
 app.use("/uploads", express.static(UPLOAD_DIR));
