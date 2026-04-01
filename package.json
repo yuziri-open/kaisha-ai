@@ -1,0 +1,21 @@
+{
+  "name": "kaisha-ai",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.11.0",
+  "scripts": {
+    "dev": "concurrently -n server,ui -c blue,magenta \"pnpm --filter @kaisha-ai/server dev\" \"pnpm --filter @kaisha-ai/ui dev\"",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "better-sqlite3",
+      "esbuild"
+    ]
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "typescript": "^5.8.3"
+  }
+}
