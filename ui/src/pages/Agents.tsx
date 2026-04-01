@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Link } from "react-router-dom";
+import { MessageSquare, Pencil, Plus, Trash2 } from "lucide-react";
 import { api } from "@/api/client";
 import { AgentCard } from "@/components/AgentCard";
 import { OrgChart } from "@/components/OrgChart";
@@ -94,6 +95,11 @@ export function AgentsPage() {
               live={liveMap.get(agent.id)}
               actions={
                 <div className="flex gap-2">
+                  <Link to={`/agents/${agent.id}/chat`}>
+                    <Button variant="ghost" size="sm">
+                      <MessageSquare size={15} />
+                    </Button>
+                  </Link>
                   <Button variant="ghost" size="sm" onClick={() => setEditing(agent)}>
                     <Pencil size={15} />
                   </Button>
