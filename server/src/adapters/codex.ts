@@ -16,7 +16,7 @@ const CODEX_BIN =
     : "codex";
 
 const ANSI_ESCAPE_RE = /\u001b\[[0-9;?]*[ -/]*[@-~]/g;
-const DEFAULT_MODEL = "gpt-5.4-codex";
+const DEFAULT_MODEL = "gpt-5.4";
 const DEFAULT_TIMEOUT_SEC = 300;
 
 export interface CodexOutputEvent {

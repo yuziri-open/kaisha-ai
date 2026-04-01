@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import type { AgentRun, ChatMessage, CodexAdapterConfig, ClaudeAdapterConfig } from "@/lib/types";
 import { cn, formatDate } from "@/lib/utils";
 
-const CODEX_MODEL_OPTIONS = ["gpt-5.4-codex", "gpt-5.4", "o3", "o4-mini"];
+const CODEX_MODEL_OPTIONS = ["gpt-5.4", "o3", "o4-mini"];
 const CLAUDE_MODEL_OPTIONS = ["claude-sonnet-4-20250514", "claude-opus-4-20250514", "claude-haiku-3-5-20241022"];
 
 function upsertMessage(list: ChatMessage[], next: ChatMessage) {
@@ -42,7 +42,7 @@ export function AgentChatPage() {
   const [streamedText, setStreamedText] = useState("");
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
   const [config, setConfig] = useState<CodexAdapterConfig & ClaudeAdapterConfig>({
-    model: "gpt-5.4-codex",
+    model: "gpt-5.4",
     cwd: "",
     fullAuto: true,
     maxTurns: 10,
@@ -75,7 +75,7 @@ export function AgentChatPage() {
     const isClaude = agent.adapterType === "Claude Code";
     const adapterCfg = agent.adapterConfig;
     setConfig({
-      model: adapterCfg.model || (isClaude ? "claude-sonnet-4-20250514" : "gpt-5.4-codex"),
+      model: adapterCfg.model || (isClaude ? "claude-sonnet-4-20250514" : "gpt-5.4"),
       cwd: adapterCfg.cwd || "",
       fullAuto: "fullAuto" in adapterCfg ? (adapterCfg as CodexAdapterConfig).fullAuto ?? true : true,
       maxTurns: "maxTurns" in adapterCfg ? (adapterCfg as ClaudeAdapterConfig).maxTurns ?? 10 : 10,
@@ -228,7 +228,7 @@ export function AgentChatPage() {
                 <div>
                   <h2 className="text-2xl font-semibold text-foreground">{agent.name} とチャット</h2>
                   <p className="text-sm text-muted-foreground">
-                    {agent.role} / モデル {config.model || "gpt-5.4-codex"}
+                    {agent.role} / モデル {config.model || "gpt-5.4"}
                   </p>
                 </div>
               </div>
@@ -301,7 +301,7 @@ export function AgentChatPage() {
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-xs text-muted-foreground">
-                現在の設定: {config.model || "gpt-5.4-codex"} / {config.cwd || "作業ディレクトリ未設定"}
+                現在の設定: {config.model || "gpt-5.4"} / {config.cwd || "作業ディレクトリ未設定"}
               </p>
               <Button
                 variant="accent"
@@ -337,7 +337,7 @@ export function AgentChatPage() {
               <span className="text-xs font-medium tracking-[0.08em] text-muted-foreground">モデル</span>
               <select
                 className="w-full rounded-[14px] border border-[var(--glass-border)] bg-[var(--glass-bg)] px-4 py-3 text-sm text-foreground outline-none"
-                value={config.model ?? (isClaude ? "claude-sonnet-4-20250514" : "gpt-5.4-codex")}
+                value={config.model ?? (isClaude ? "claude-sonnet-4-20250514" : "gpt-5.4")}
                 onChange={(event) => setConfig((current) => ({ ...current, model: event.target.value }))}
               >
                 {modelOptions.map((model) => (

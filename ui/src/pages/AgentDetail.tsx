@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { CodexAdapterConfig, ClaudeAdapterConfig } from "@/lib/types";
 
-const CODEX_MODEL_OPTIONS = ["gpt-5.4-codex", "gpt-5.4", "o3", "o4-mini"];
+const CODEX_MODEL_OPTIONS = ["gpt-5.4", "o3", "o4-mini"];
 const CLAUDE_MODEL_OPTIONS = ["claude-sonnet-4-20250514", "claude-opus-4-20250514", "claude-haiku-3-5-20241022"];
 
 export function AgentDetailPage() {
@@ -18,7 +18,7 @@ export function AgentDetailPage() {
   const queryClient = useQueryClient();
   const [adapterType, setAdapterType] = useState("Codex");
   const [config, setConfig] = useState<CodexAdapterConfig & ClaudeAdapterConfig>({
-    model: "gpt-5.4-codex",
+    model: "gpt-5.4",
     cwd: "",
     fullAuto: true,
     maxTurns: 10,
@@ -38,7 +38,7 @@ export function AgentDetailPage() {
     const isClaude = agentAdapterType === "Claude Code";
     setAdapterType(agentAdapterType);
     setConfig({
-      model: adapterCfg.model || (isClaude ? "claude-sonnet-4-20250514" : "gpt-5.4-codex"),
+      model: adapterCfg.model || (isClaude ? "claude-sonnet-4-20250514" : "gpt-5.4"),
       cwd: adapterCfg.cwd || "",
       fullAuto: "fullAuto" in adapterCfg ? (adapterCfg as CodexAdapterConfig).fullAuto ?? true : true,
       maxTurns: "maxTurns" in adapterCfg ? (adapterCfg as ClaudeAdapterConfig).maxTurns ?? 10 : 10,
@@ -151,7 +151,7 @@ export function AgentDetailPage() {
                 setAdapterType(newType);
                 setConfig((current) => ({
                   ...current,
-                  model: newType === "Claude Code" ? "claude-sonnet-4-20250514" : "gpt-5.4-codex",
+                  model: newType === "Claude Code" ? "claude-sonnet-4-20250514" : "gpt-5.4",
                 }));
               }}
             >
@@ -164,7 +164,7 @@ export function AgentDetailPage() {
             <span className="text-xs font-medium tracking-[0.08em] text-muted-foreground">モデル</span>
             <select
               className="w-full rounded-[14px] border border-[var(--glass-border)] bg-[var(--glass-bg)] px-4 py-3 text-sm text-foreground outline-none"
-              value={config.model ?? (adapterType === "Claude Code" ? "claude-sonnet-4-20250514" : "gpt-5.4-codex")}
+              value={config.model ?? (adapterType === "Claude Code" ? "claude-sonnet-4-20250514" : "gpt-5.4")}
               onChange={(event) => setConfig((current) => ({ ...current, model: event.target.value }))}
             >
               {(adapterType === "Claude Code" ? CLAUDE_MODEL_OPTIONS : CODEX_MODEL_OPTIONS).map((model) => (

@@ -4,7 +4,7 @@ import { executeClaude } from "../adapters/claude.js";
 import { store } from "../db/store.js";
 import type { AppContext, CodexAdapterConfig, ClaudeAdapterConfig } from "../types.js";
 
-const DEFAULT_CODEX_MODEL = "gpt-5.4-codex";
+const DEFAULT_CODEX_MODEL = "gpt-5.4";
 const DEFAULT_CLAUDE_MODEL = "claude-sonnet-4-20250514";
 const DEFAULT_TIMEOUT_SEC = 300;
 const DEFAULT_CLAUDE_TIMEOUT_SEC = 600;
