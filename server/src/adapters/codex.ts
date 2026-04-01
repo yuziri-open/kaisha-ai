@@ -1,6 +1,19 @@
 import { spawn } from "node:child_process";
+import os from "node:os";
 import path from "node:path";
 import type { CodexAdapterConfig } from "../types.js";
+
+// Windows では codex.cmd のフルパスを使用してPATH問題を回避
+const CODEX_BIN =
+  os.platform() === "win32"
+    ? path.join(
+        os.homedir(),
+        "AppData",
+        "Roaming",
+        "npm",
+        "codex.cmd",
+      )
+    : "codex";
 
 const ANSI_ESCAPE_RE = /\u001b\[[0-9;?]*[ -/]*[@-~]/g;
 const DEFAULT_MODEL = "gpt-5.4-codex";
@@ -80,7 +93,7 @@ export async function executeCodex(options: ExecuteCodexOptions): Promise<CodexE
     let finished = false;
     let timedOut = false;
 
-    const child = spawn("codex", args, {
+    const child = spawn(CODEX_BIN, args, {
       cwd,
       env,
       shell: true,
