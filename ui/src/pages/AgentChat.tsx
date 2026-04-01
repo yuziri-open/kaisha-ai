@@ -45,6 +45,7 @@ export function AgentChatPage() {
     model: "gpt-5.4",
     cwd: "",
     fullAuto: true,
+    reasoningEffort: "high",
     maxTurns: 10,
     timeoutSec: 300,
   });
@@ -78,6 +79,7 @@ export function AgentChatPage() {
       model: adapterCfg.model || (isClaude ? "claude-sonnet-4-20250514" : "gpt-5.4"),
       cwd: adapterCfg.cwd || "",
       fullAuto: "fullAuto" in adapterCfg ? (adapterCfg as CodexAdapterConfig).fullAuto ?? true : true,
+      reasoningEffort: "reasoningEffort" in adapterCfg ? (adapterCfg as CodexAdapterConfig).reasoningEffort ?? "high" : "high",
       maxTurns: "maxTurns" in adapterCfg ? (adapterCfg as ClaudeAdapterConfig).maxTurns ?? 10 : 10,
       timeoutSec: adapterCfg.timeoutSec ?? (isClaude ? 600 : 300),
       env: adapterCfg.env ?? {},
@@ -424,6 +426,21 @@ export function AgentChatPage() {
                 />
               </label>
             )}
+
+            {!isClaude ? (
+              <label className="space-y-2">
+                <span className="text-xs font-medium tracking-[0.08em] text-muted-foreground">Reasoning Effort</span>
+                <select
+                  className="w-full rounded-[14px] border border-[var(--glass-border)] bg-[var(--glass-bg)] px-4 py-3 text-sm text-foreground outline-none"
+                  value={config.reasoningEffort ?? "high"}
+                  onChange={(event) => setConfig((current) => ({ ...current, reasoningEffort: event.target.value }))}
+                >
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select>
+              </label>
+            ) : null}
           </div>
 
           <Button

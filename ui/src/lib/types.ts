@@ -10,6 +10,7 @@ export interface CodexAdapterConfig {
   model?: string;
   cwd?: string;
   fullAuto?: boolean;
+  reasoningEffort?: string;
   timeoutSec?: number;
   env?: Record<string, string>;
 }

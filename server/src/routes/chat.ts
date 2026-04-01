@@ -29,6 +29,7 @@ function parseCodexConfig(input: unknown): CodexAdapterConfig {
     model: typeof record.model === "string" ? record.model : undefined,
     cwd: typeof record.cwd === "string" ? record.cwd : undefined,
     fullAuto: typeof record.fullAuto === "boolean" ? record.fullAuto : undefined,
+    reasoningEffort: typeof record.reasoningEffort === "string" ? record.reasoningEffort : undefined,
     timeoutSec: typeof record.timeoutSec === "number" ? record.timeoutSec : undefined,
     env,
   };
@@ -63,6 +64,7 @@ function mergeCodexConfig(base: CodexAdapterConfig, override: CodexAdapterConfig
     model: override.model ?? base.model ?? DEFAULT_CODEX_MODEL,
     cwd: override.cwd ?? base.cwd,
     fullAuto: override.fullAuto ?? base.fullAuto ?? true,
+    reasoningEffort: override.reasoningEffort ?? base.reasoningEffort ?? "high",
     timeoutSec: override.timeoutSec ?? base.timeoutSec ?? DEFAULT_TIMEOUT_SEC,
     env: {
       ...(base.env ?? {}),

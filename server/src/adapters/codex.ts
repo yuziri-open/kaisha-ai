@@ -20,6 +20,30 @@ const ANSI_ESCAPE_RE = /\u001b\[[0-9;?]*[ -/]*[@-~]/g;
 const DEFAULT_MODEL = "gpt-5.4";
 const DEFAULT_TIMEOUT_SEC = 300;
 
+/** Lines matching these patterns are Codex debug/meta output, not agent response */
+const NOISE_PATTERNS = [
+  /^OpenAI Codex v[\d.]+/,
+  /^-{4,}$/,
+  /^workdir:/,
+  /^model:/,
+  /^provider:/,
+  /^approval:/,
+  /^sandbox:/,
+  /^reasoning effort:/,
+  /^reasoning summar/,
+  /^session id:/,
+  /^user$/,
+  /^mcp:/,
+  /^mcp startup:/,
+  /^thinking$/,
+  /^codex$/,
+  /^warning:/i,
+];
+
+function isNoiseLine(line: string): boolean {
+  return NOISE_PATTERNS.some((re) => re.test(line));
+}
+
 export interface CodexOutputEvent {
   stream: "stdout" | "stderr";
   line: string;
@@ -52,7 +76,7 @@ function cleanLine(value: string) {
 }
 
 async function flushBuffer(
-  state: { buffer: string; lines: string[] },
+  state: { buffer: string; lines: string[]; cleanLines: string[] },
   stream: "stdout" | "stderr",
   onOutput?: ExecuteCodexOptions["onOutput"],
 ) {
@@ -63,6 +87,10 @@ async function flushBuffer(
     const line = cleanLine(part);
     if (!line) continue;
     state.lines.push(line);
+    // Only add non-noise lines to clean output
+    if (!isNoiseLine(line)) {
+      state.cleanLines.push(line);
+    }
     await onOutput?.({
       stream,
       line,
@@ -76,6 +104,7 @@ export async function executeCodex(options: ExecuteCodexOptions): Promise<CodexE
   const model = options.config?.model?.trim() || DEFAULT_MODEL;
   const cwd = path.resolve(options.config?.cwd?.trim() || process.cwd());
   const fullAuto = options.config?.fullAuto ?? true;
+  const reasoningEffort = options.config?.reasoningEffort?.trim() || "";
   const timeoutSec = options.config?.timeoutSec ?? DEFAULT_TIMEOUT_SEC;
   const startedAt = new Date().toISOString();
   // Use "-" so prompt is read from stdin (avoids Windows CLI encoding issues with Japanese)
@@ -85,14 +114,18 @@ export async function executeCodex(options: ExecuteCodexOptions): Promise<CodexE
     args.push("--full-auto");
   }
 
+  if (reasoningEffort) {
+    args.push("-c", `reasoning_effort="${reasoningEffort}"`);
+  }
+
   const env = {
     ...process.env,
     ...(options.config?.env ?? {}),
   };
 
   return await new Promise<CodexExecutionResult>((resolve) => {
-    const stdoutState = { buffer: "", lines: [] as string[] };
-    const stderrState = { buffer: "", lines: [] as string[] };
+    const stdoutState = { buffer: "", lines: [] as string[], cleanLines: [] as string[] };
+    const stderrState = { buffer: "", lines: [] as string[], cleanLines: [] as string[] };
     let finished = false;
     let timedOut = false;
 
@@ -119,6 +152,9 @@ export async function executeCodex(options: ExecuteCodexOptions): Promise<CodexE
         const pending = cleanLine(state.buffer);
         if (pending) {
           state.lines.push(pending);
+          if (!isNoiseLine(pending)) {
+            state.cleanLines.push(pending);
+          }
           await options.onOutput?.({
             stream: state === stdoutState ? "stdout" : "stderr",
             line: pending,
@@ -127,7 +163,8 @@ export async function executeCodex(options: ExecuteCodexOptions): Promise<CodexE
         }
       }
 
-      const output = [...stdoutState.lines, ...stderrState.lines].join("\n").trim();
+      // Use clean lines (noise filtered) for the final output
+      const output = [...stdoutState.cleanLines, ...stderrState.cleanLines].join("\n").trim();
       resolve({
         ...payload,
         output,
