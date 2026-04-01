@@ -74,11 +74,23 @@ app.use("/api", (_req, res) => {
   res.status(404).json({ message: "API が見つかりません。" });
 });
 
+// Serve built UI (production) or proxy to Vite dev server
 if (existsSync(path.join(config.uiDistPath, "index.html"))) {
   app.use(express.static(config.uiDistPath));
   app.get("*", (_req, res) => {
     res.type("html").send(readFileSync(path.join(config.uiDistPath, "index.html"), "utf8"));
   });
+} else {
+  // Dev mode: proxy all non-API requests to Vite dev server
+  const VITE_PORT = 3201;
+  const { createProxyMiddleware } = await import("http-proxy-middleware");
+  app.use(
+    createProxyMiddleware({
+      target: `http://localhost:${VITE_PORT}`,
+      changeOrigin: true,
+      ws: true,
+    }),
+  );
 }
 
 const server = app.listen(config.port, config.host, () => {

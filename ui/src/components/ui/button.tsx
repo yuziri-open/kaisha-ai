@@ -1,7 +1,7 @@
 import type { ButtonHTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
 
-type Variant = "default" | "ghost" | "outline" | "accent" | "destructive";
+type Variant = "default" | "ghost" | "outline" | "accent" | "destructive" | "secondary";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: Variant;
@@ -19,6 +19,8 @@ const variantStyles: Record<Variant, string> = {
     "glass-accent text-white shadow-[0_4px_16px_rgba(0,122,255,0.25)] hover:shadow-[0_6px_20px_rgba(0,122,255,0.35)]",
   destructive:
     "bg-[#FF3B30] text-white hover:bg-[#E5342B]",
+  secondary:
+    "glass-subtle text-foreground hover:bg-[var(--glass-bg)]",
 };
 
 const sizeStyles = {

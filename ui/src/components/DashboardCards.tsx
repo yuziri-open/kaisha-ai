@@ -1,44 +1,40 @@
 import { Bot, CheckCircle2, Clock, Coins } from "lucide-react";
 
 interface SummaryData {
-  agentCount: number;
-  activeTaskCount: number;
-  pendingApprovalCount: number;
-  totalCost: number;
+  activeAgents: number;
+  inProgressTasks: number;
+  pendingApprovals: number;
+  monthlyCost: number;
 }
 
 const metrics = [
   {
-    key: "agentCount" as const,
+    key: "activeAgents" as const,
     label: "稼働エージェント",
     icon: Bot,
     color: "#007AFF",
     bgFrom: "rgba(0, 122, 255, 0.12)",
-    bgTo: "rgba(0, 122, 255, 0.04)",
   },
   {
-    key: "activeTaskCount" as const,
+    key: "inProgressTasks" as const,
     label: "進行中タスク",
     icon: Clock,
     color: "#FF9F0A",
     bgFrom: "rgba(255, 159, 10, 0.12)",
-    bgTo: "rgba(255, 159, 10, 0.04)",
   },
   {
-    key: "pendingApprovalCount" as const,
+    key: "pendingApprovals" as const,
     label: "承認待ち",
     icon: CheckCircle2,
     color: "#AF52DE",
     bgFrom: "rgba(175, 82, 222, 0.12)",
-    bgTo: "rgba(175, 82, 222, 0.04)",
   },
   {
-    key: "totalCost" as const,
+    key: "monthlyCost" as const,
     label: "今月のコスト",
     icon: Coins,
     color: "#34C759",
     bgFrom: "rgba(52, 199, 89, 0.12)",
-    bgTo: "rgba(52, 199, 89, 0.04)",
   },
 ];
 
@@ -47,7 +43,7 @@ export function DashboardCards({ summary }: { summary: SummaryData }) {
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       {metrics.map((m) => {
         const Icon = m.icon;
-        const value = m.key === "totalCost"
+        const value = m.key === "monthlyCost"
           ? `¥${summary[m.key].toLocaleString()}`
           : summary[m.key];
         return (
@@ -55,7 +51,6 @@ export function DashboardCards({ summary }: { summary: SummaryData }) {
             key={m.key}
             className="glass hover-lift hover-glow relative overflow-hidden rounded-[20px] p-5"
           >
-            {/* Subtle color accent */}
             <div
               className="pointer-events-none absolute -right-4 -top-4 h-24 w-24 rounded-full opacity-60 blur-2xl"
               style={{ background: m.bgFrom }}

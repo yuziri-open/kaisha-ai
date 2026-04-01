@@ -43,6 +43,8 @@ export interface Agent {
   updatedAt: string;
 }
 
+export type LiveAgent = AgentLiveCard;
+
 export interface AgentLiveCard {
   id: string;
   name: string;
