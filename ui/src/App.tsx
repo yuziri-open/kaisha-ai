@@ -2,6 +2,7 @@ import { Route, Routes } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { AgentsPage } from "@/pages/Agents";
 import { AgentDetailPage } from "@/pages/AgentDetail";
+import { AgentChatPage } from "@/pages/AgentChat";
 import { ApprovalsPage } from "@/pages/Approvals";
 import { CostsPage } from "@/pages/Costs";
 import { DashboardPage } from "@/pages/Dashboard";
@@ -19,6 +20,7 @@ export function App() {
         <Route index element={<DashboardPage />} />
         <Route path="/agents" element={<AgentsPage />} />
         <Route path="/agents/:agentId" element={<AgentDetailPage />} />
+        <Route path="/agents/:agentId/chat" element={<AgentChatPage />} />
         <Route path="/tasks" element={<TasksPage />} />
         <Route path="/tasks/:taskId" element={<TaskDetailPage />} />
         <Route path="/goals" element={<GoalsPage />} />
@@ -31,4 +33,3 @@ export function App() {
     </Routes>
   );
 }
-

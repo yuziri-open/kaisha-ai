@@ -1,20 +1,61 @@
-import { useQuery } from "@tanstack/react-query";
-import { useParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link, useParams } from "react-router-dom";
+import { Bot, MessageSquare, Save } from "lucide-react";
 import { api } from "@/api/client";
 import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Card, CardSubtle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import type { CodexAdapterConfig } from "@/lib/types";
+
+const MODEL_OPTIONS = ["gpt-5.4-codex", "gpt-5.4", "o3", "o4-mini"];
 
 export function AgentDetailPage() {
   const params = useParams<{ agentId: string }>();
+  const queryClient = useQueryClient();
+  const [adapterType, setAdapterType] = useState("Codex");
+  const [config, setConfig] = useState<CodexAdapterConfig>({
+    model: "gpt-5.4-codex",
+    cwd: "",
+    fullAuto: true,
+    timeoutSec: 300,
+  });
+
   const query = useQuery({
     queryKey: ["agent", params.agentId],
     queryFn: () => api.agent(params.agentId ?? ""),
     enabled: Boolean(params.agentId),
   });
 
+  useEffect(() => {
+    if (!query.data) return;
+    setAdapterType(query.data.agent.adapterType || "Codex");
+    setConfig({
+      model: query.data.agent.adapterConfig.model || "gpt-5.4-codex",
+      cwd: query.data.agent.adapterConfig.cwd || "",
+      fullAuto: query.data.agent.adapterConfig.fullAuto ?? true,
+      timeoutSec: query.data.agent.adapterConfig.timeoutSec ?? 300,
+      env: query.data.agent.adapterConfig.env ?? {},
+    });
+  }, [query.data]);
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      if (!params.agentId) throw new Error("agentId がありません。");
+      return await api.updateAgent(params.agentId, {
+        adapterType,
+        adapterConfig: config,
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["agent", params.agentId] });
+    },
+  });
+
   if (!query.data) {
-    return <div className="glass-panel rounded-[28px] p-8 text-sm text-muted-foreground">エージェント詳細を読み込み中です...</div>;
+    return <div className="glass-panel rounded-[28px] p-8 text-sm text-muted-foreground">エージェント情報を読み込み中です...</div>;
   }
 
   const { agent, taskHistory, heartbeats } = query.data;
@@ -22,7 +63,7 @@ export function AgentDetailPage() {
   return (
     <div className="space-y-5">
       <Card className="p-6">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+        <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
           <div className="flex items-center gap-4">
             <div className="h-18 w-18 rounded-[22px] border border-white/25" style={{ background: `${agent.color}66` }} />
             <div>
@@ -41,21 +82,22 @@ export function AgentDetailPage() {
               <p className="mt-1 text-foreground">{agent.adapterType}</p>
             </div>
             <div>
-              <p>今月コスト</p>
+              <p>月次コスト</p>
               <p className="mt-1 text-foreground">{formatCurrency(agent.monthlyCost)}</p>
             </div>
             <div>
-              <p>最終稼働</p>
+              <p>最終応答</p>
               <p className="mt-1 text-foreground">{formatDate(agent.lastHeartbeatAt)}</p>
             </div>
           </div>
         </div>
-        <div className="mt-5 grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
-          <div className="glass-surface rounded-[22px] p-4">
-            <p className="text-sm text-muted-foreground">設定メモ</p>
+
+        <div className="mt-5 grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
+          <div className="glass-subtle rounded-[22px] p-4">
+            <p className="text-sm text-muted-foreground">エージェントプロンプト</p>
             <p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-foreground">{agent.prompt}</p>
           </div>
-          <div className="glass-surface rounded-[22px] p-4">
+          <div className="glass-subtle rounded-[22px] p-4">
             <p className="text-sm text-muted-foreground">スキル</p>
             <div className="mt-3 flex flex-wrap gap-2">
               {agent.skills.map((skill) => (
@@ -66,26 +108,127 @@ export function AgentDetailPage() {
         </div>
       </Card>
 
+      <Card className="p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <div className="flex items-center gap-2 text-foreground">
+              <Bot size={18} />
+              <h3 className="text-xl font-semibold">Codex アダプター設定</h3>
+            </div>
+            <p className="mt-2 text-sm text-muted-foreground">
+              この設定はチャット画面の既定値として使われます。
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <Link
+              to={`/agents/${agent.id}/chat`}
+              className="glass-subtle inline-flex items-center justify-center gap-2 rounded-[12px] px-4 py-2.5 text-[13px] font-medium text-foreground transition hover:bg-[var(--glass-bg)]"
+            >
+              <MessageSquare size={16} />
+              チャットを開く
+            </Link>
+            <Button variant="accent" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+              <Save size={16} />
+              {saveMutation.isPending ? "保存中..." : "設定を保存"}
+            </Button>
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-4 xl:grid-cols-4">
+          <label className="space-y-2">
+            <span className="text-xs font-medium tracking-[0.08em] text-muted-foreground">アダプタータイプ</span>
+            <select
+              className="w-full rounded-[14px] border border-[var(--glass-border)] bg-[var(--glass-bg)] px-4 py-3 text-sm text-foreground outline-none"
+              value={adapterType}
+              onChange={(event) => setAdapterType(event.target.value)}
+            >
+              <option value="Codex">Codex</option>
+            </select>
+          </label>
+
+          <label className="space-y-2">
+            <span className="text-xs font-medium tracking-[0.08em] text-muted-foreground">モデル</span>
+            <select
+              className="w-full rounded-[14px] border border-[var(--glass-border)] bg-[var(--glass-bg)] px-4 py-3 text-sm text-foreground outline-none"
+              value={config.model ?? "gpt-5.4-codex"}
+              onChange={(event) => setConfig((current) => ({ ...current, model: event.target.value }))}
+            >
+              {MODEL_OPTIONS.map((model) => (
+                <option key={model} value={model}>
+                  {model}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="space-y-2 xl:col-span-2">
+            <span className="text-xs font-medium tracking-[0.08em] text-muted-foreground">作業ディレクトリ</span>
+            <Input
+              value={config.cwd ?? ""}
+              onChange={(event) => setConfig((current) => ({ ...current, cwd: event.target.value }))}
+              placeholder="例: C:\\Users\\coli8\\.openclaw\\workspace"
+            />
+          </label>
+        </div>
+
+        <div className="mt-4 grid gap-4 md:grid-cols-[220px_1fr]">
+          <label className="space-y-2">
+            <span className="text-xs font-medium tracking-[0.08em] text-muted-foreground">タイムアウト（秒）</span>
+            <Input
+              type="number"
+              min={30}
+              value={config.timeoutSec ?? 300}
+              onChange={(event) =>
+                setConfig((current) => ({
+                  ...current,
+                  timeoutSec: Number(event.target.value) || 300,
+                }))
+              }
+            />
+          </label>
+
+          <label className="glass-subtle flex items-center justify-between rounded-[18px] px-4 py-3">
+            <div>
+              <p className="text-sm font-medium text-foreground">`--full-auto` を有効にする</p>
+              <p className="mt-1 text-xs text-muted-foreground">承認なしで Codex に処理を進めさせます。</p>
+            </div>
+            <input
+              type="checkbox"
+              className="h-4 w-4 accent-[#007AFF]"
+              checked={config.fullAuto ?? true}
+              onChange={(event) => setConfig((current) => ({ ...current, fullAuto: event.target.checked }))}
+            />
+          </label>
+        </div>
+
+        {saveMutation.isError ? (
+          <p className="mt-3 text-sm text-red-500">
+            {saveMutation.error instanceof Error ? saveMutation.error.message : "設定の保存に失敗しました。"}
+          </p>
+        ) : null}
+      </Card>
+
       <div className="grid gap-5 xl:grid-cols-[1fr_1fr]">
         <Card className="p-5">
-          <h3 className="text-xl font-semibold text-foreground">担当タスク履歴</h3>
+          <h3 className="text-xl font-semibold text-foreground">最近の担当タスク</h3>
           <div className="mt-4 space-y-3">
             {taskHistory.map((task) => (
-              <div key={task.id} className="rounded-[18px] border border-white/12 bg-white/8 p-4">
+              <CardSubtle key={task.id} className="border border-white/12 bg-white/8 p-4">
                 <div className="flex items-center justify-between gap-3">
                   <p className="font-medium text-foreground">{task.title}</p>
                   <Badge>{task.status}</Badge>
                 </div>
                 <p className="mt-2 text-sm text-muted-foreground">{task.description}</p>
-              </div>
+              </CardSubtle>
             ))}
           </div>
         </Card>
+
         <Card className="p-5">
           <h3 className="text-xl font-semibold text-foreground">Heartbeat ログ</h3>
           <div className="mt-4 space-y-3">
             {heartbeats.map((heartbeat) => (
-              <div key={heartbeat.id} className="rounded-[18px] border border-white/12 bg-white/8 p-4">
+              <CardSubtle key={heartbeat.id} className="border border-white/12 bg-white/8 p-4">
                 <div className="flex items-center justify-between gap-3">
                   <p className="font-medium text-foreground">{heartbeat.message}</p>
                   <span className="text-xs text-muted-foreground">{formatDate(heartbeat.createdAt)}</span>
@@ -93,7 +236,7 @@ export function AgentDetailPage() {
                 <p className="mt-2 text-sm text-muted-foreground">
                   CPU {heartbeat.cpuUsage}% / MEM {heartbeat.memoryUsage}% / ステータス {heartbeat.status}
                 </p>
-              </div>
+              </CardSubtle>
             ))}
           </div>
         </Card>
@@ -101,4 +244,3 @@ export function AgentDetailPage() {
     </div>
   );
 }
-

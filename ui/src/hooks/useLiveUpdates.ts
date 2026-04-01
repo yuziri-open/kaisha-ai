@@ -20,6 +20,8 @@ export function useLiveUpdates() {
     source.addEventListener("routine", invalidate);
     source.addEventListener("task", invalidate);
     source.addEventListener("agent", invalidate);
+    source.addEventListener("chat:message", invalidate);
+    source.addEventListener("run:complete", invalidate);
     source.onerror = () => invalidate();
 
     return () => {
@@ -28,4 +30,3 @@ export function useLiveUpdates() {
     };
   }, [queryClient]);
 }
-

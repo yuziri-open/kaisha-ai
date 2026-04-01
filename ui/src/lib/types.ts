@@ -1,8 +1,18 @@
-export type AgentStatus = "稼働中" | "待機" | "注意" | "停止";
-export type TaskStatus = "バックログ" | "進行中" | "レビュー" | "完了";
-export type TaskPriority = "低" | "中" | "高" | "緊急";
+export type AgentStatus = string;
+export type TaskStatus = string;
+export type TaskPriority = string;
 export type RoutineScheduleType = "cron" | "interval";
-export type ApprovalStatus = "承認待ち" | "承認" | "却下";
+export type ApprovalStatus = string;
+export type RunStatus = "pending" | "running" | "completed" | "failed";
+export type ChatMessageRole = "user" | "assistant" | "system";
+
+export interface CodexAdapterConfig {
+  model?: string;
+  cwd?: string;
+  fullAuto?: boolean;
+  timeoutSec?: number;
+  env?: Record<string, string>;
+}
 
 export interface ActivityItem {
   id: string;
@@ -39,6 +49,7 @@ export interface Agent {
   prompt: string;
   skills: string[];
   color: string;
+  adapterConfig: CodexAdapterConfig;
   createdAt: string;
   updatedAt: string;
 }
@@ -103,11 +114,40 @@ export interface AgentDetailData {
   heartbeats: HeartbeatLog[];
 }
 
+export interface ChatMessage {
+  id: string;
+  agentId: string;
+  runId: string | null;
+  role: ChatMessageRole;
+  content: string;
+  createdAt: string;
+}
+
+export interface AgentRun {
+  id: string;
+  agentId: string;
+  prompt: string;
+  status: RunStatus;
+  output: string;
+  exitCode: number | null;
+  model: string | null;
+  cwd: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  createdAt: string;
+}
+
+export interface AgentChatData {
+  agentId: string;
+  messages: ChatMessage[];
+  runs: AgentRun[];
+}
+
 export interface Goal {
   id: string;
   title: string;
   description: string;
-  level: "会社" | "プロジェクト" | "タスク";
+  level: string;
   parentId: string | null;
   progress: number;
   status: string;
@@ -180,4 +220,3 @@ export interface SettingsData {
     completedAt: string | null;
   };
 }
-

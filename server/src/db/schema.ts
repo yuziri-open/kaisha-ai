@@ -39,6 +39,7 @@ export function createDatabase() {
       prompt TEXT NOT NULL DEFAULT '',
       skills_json TEXT NOT NULL DEFAULT '[]',
       color TEXT NOT NULL DEFAULT '#007AFF',
+      adapter_config_json TEXT NOT NULL DEFAULT '{}',
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
@@ -163,10 +164,42 @@ export function createDatabase() {
       memory_usage REAL NOT NULL,
       created_at TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS runs (
+      id TEXT PRIMARY KEY,
+      agent_id TEXT NOT NULL REFERENCES agents(id),
+      prompt TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      output TEXT NOT NULL DEFAULT '',
+      exit_code INTEGER,
+      model TEXT,
+      cwd TEXT,
+      started_at TEXT,
+      finished_at TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS chat_messages (
+      id TEXT PRIMARY KEY,
+      agent_id TEXT NOT NULL REFERENCES agents(id),
+      run_id TEXT REFERENCES runs(id),
+      role TEXT NOT NULL,
+      content TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 
+  ensureColumn(db, "agents", "adapter_config_json", "TEXT NOT NULL DEFAULT '{}'");
   seedDatabase(db);
   return db;
+}
+
+function ensureColumn(db: Database.Database, tableName: string, columnName: string, definition: string) {
+  const columns = db.prepare(`PRAGMA table_info(${tableName})`).all() as Array<{ name?: string }>;
+  const exists = columns.some((column) => column.name === columnName);
+  if (!exists) {
+    db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition}`);
+  }
 }
 
 function seedDatabase(db: Database.Database) {

@@ -1,4 +1,4 @@
-import { BellDot, Bot, ClipboardList, Coins, Flag, Gauge, Repeat, Settings2, Network } from "lucide-react";
+import { BellDot, Bot, ClipboardList, Coins, Flag, Gauge, Network, Repeat, Settings2 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "./ThemeToggle";
@@ -18,7 +18,6 @@ const items = [
 export function Sidebar() {
   return (
     <aside className="glass sticky top-5 flex h-[calc(100vh-40px)] w-full max-w-[280px] flex-col rounded-[28px] p-5">
-      {/* Logo area */}
       <div className="mb-8">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-[14px] bg-gradient-to-br from-[#007AFF] to-[#5856D6] text-white shadow-[0_4px_12px_rgba(0,122,255,0.3)]">
@@ -31,7 +30,6 @@ export function Sidebar() {
         </div>
       </div>
 
-      {/* Navigation */}
       <nav className="flex flex-1 flex-col gap-1">
         {items.map((item) => {
           const Icon = item.icon;
@@ -56,16 +54,17 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* Theme section */}
       <div className="mt-4 rounded-[18px] border border-[var(--glass-border)] bg-[var(--glass-bg-subtle)] p-4">
         <div className="mb-3 flex items-center justify-between">
           <p className="text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground">テーマ</p>
           <ThemeToggle />
         </div>
+        <p className="text-xs leading-5 text-muted-foreground">
+          エージェントチャットは各エージェント詳細から開けます。
+        </p>
       </div>
 
-      {/* Version */}
-      <p className="mt-4 text-center text-[10px] text-muted-foreground/50">v0.1 — Liquid Glass</p>
+      <p className="mt-4 text-center text-[10px] text-muted-foreground/50">v0.1 Liquid Glass</p>
     </aside>
   );
 }

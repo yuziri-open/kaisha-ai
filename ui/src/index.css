@@ -327,3 +327,35 @@ a {
 ::selection {
   background: rgba(0, 122, 255, 0.2);
 }
+
+.chat-stream-cursor {
+  width: 10px;
+  height: 1.2rem;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(0, 122, 255, 0.95), rgba(90, 200, 250, 0.85));
+  animation: chat-cursor-blink 1s steps(2, start) infinite;
+}
+
+.chat-streaming {
+  animation: chat-stream-fade 180ms ease-out;
+}
+
+@keyframes chat-cursor-blink {
+  0%, 49% {
+    opacity: 1;
+  }
+  50%, 100% {
+    opacity: 0.18;
+  }
+}
+
+@keyframes chat-stream-fade {
+  from {
+    opacity: 0.5;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

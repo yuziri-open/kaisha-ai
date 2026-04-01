@@ -7,6 +7,7 @@ import { config } from "./config.js";
 import { createDatabase } from "./db/schema.js";
 import { approvalRoutes } from "./routes/approvals.js";
 import { agentRoutes } from "./routes/agents.js";
+import { chatRoutes } from "./routes/chat.js";
 import { costRoutes } from "./routes/costs.js";
 import { dashboardRoutes } from "./routes/dashboard.js";
 import { goalRoutes } from "./routes/goals.js";
@@ -63,6 +64,7 @@ app.get("/api/events", (req, res) => {
 
 app.use("/api", dashboardRoutes(context));
 app.use("/api", agentRoutes(context));
+app.use("/api", chatRoutes(context));
 app.use("/api", taskRoutes(context));
 app.use("/api", goalRoutes(context));
 app.use("/api", routineRoutes(context));
@@ -104,4 +106,3 @@ process.on("SIGINT", () => {
   scheduler.stop();
   server.close(() => process.exit(0));
 });
-

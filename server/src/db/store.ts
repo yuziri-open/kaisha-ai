@@ -2,6 +2,10 @@ import { randomUUID } from "node:crypto";
 import type Database from "better-sqlite3";
 import type {
   ActivityItem,
+  AgentChatResponse,
+  ChatMessageRecord,
+  ChatMessageRole,
+  CodexAdapterConfig,
   AgentDetailResponse,
   AgentRecord,
   AgentStatus,
@@ -10,6 +14,8 @@ import type {
   DashboardResponse,
   GoalRecord,
   HeartbeatLog,
+  RunRecord,
+  RunStatus,
   RoutineRecord,
   RoutineRun,
   RoutineScheduleType,
@@ -29,6 +35,24 @@ function parseJson<T>(value: unknown, fallback: T): T {
   } catch {
     return fallback;
   }
+}
+
+function parseAdapterConfig(value: unknown): CodexAdapterConfig {
+  const parsed = parseJson<Record<string, unknown>>(value, {});
+  return {
+    model: typeof parsed.model === "string" ? parsed.model : undefined,
+    cwd: typeof parsed.cwd === "string" ? parsed.cwd : undefined,
+    fullAuto: typeof parsed.fullAuto === "boolean" ? parsed.fullAuto : undefined,
+    timeoutSec: typeof parsed.timeoutSec === "number" ? parsed.timeoutSec : undefined,
+    env:
+      typeof parsed.env === "object" && parsed.env !== null && !Array.isArray(parsed.env)
+        ? Object.fromEntries(
+            Object.entries(parsed.env).filter(
+              (entry): entry is [string, string] => typeof entry[1] === "string",
+            ),
+          )
+        : undefined,
+  };
 }
 
 function monthKey(date: Date) {
@@ -111,8 +135,36 @@ function mapAgent(db: Database.Database, row: Row): AgentRecord {
     prompt: String(row.prompt ?? ""),
     skills: parseJson<string[]>(row.skills_json, []),
     color: String(row.color ?? "#007AFF"),
+    adapterConfig: parseAdapterConfig(row.adapter_config_json),
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at),
+  };
+}
+
+function mapRun(row: Row): RunRecord {
+  return {
+    id: String(row.id),
+    agentId: String(row.agent_id),
+    prompt: String(row.prompt),
+    status: String(row.status) as RunStatus,
+    output: String(row.output ?? ""),
+    exitCode: row.exit_code === null || row.exit_code === undefined ? null : Number(row.exit_code),
+    model: row.model ? String(row.model) : null,
+    cwd: row.cwd ? String(row.cwd) : null,
+    startedAt: row.started_at ? String(row.started_at) : null,
+    finishedAt: row.finished_at ? String(row.finished_at) : null,
+    createdAt: String(row.created_at),
+  };
+}
+
+function mapChatMessage(row: Row): ChatMessageRecord {
+  return {
+    id: String(row.id),
+    agentId: String(row.agent_id),
+    runId: row.run_id ? String(row.run_id) : null,
+    role: String(row.role) as ChatMessageRole,
+    content: String(row.content ?? ""),
+    createdAt: String(row.created_at),
   };
 }
 
@@ -325,6 +377,11 @@ export const store = {
     return rows.map((row: Row) => mapAgent(db, row));
   },
 
+  getAgent(db: Database.Database, agentId: string) {
+    const row = db.prepare("SELECT * FROM agents WHERE id = ?").get(agentId) as Row | undefined;
+    return row ? mapAgent(db, row) : null;
+  },
+
   getAgentDetail(db: Database.Database, agentId: string): AgentDetailResponse | null {
     const row = db.prepare("SELECT * FROM agents WHERE id = ?").get(agentId) as Row | undefined;
     if (!row) return null;
@@ -352,6 +409,159 @@ export const store = {
     };
   },
 
+  listAgentRuns(db: Database.Database, agentId: string) {
+    return db.prepare(`
+      SELECT *
+      FROM runs
+      WHERE agent_id = ?
+      ORDER BY created_at DESC
+    `).all(agentId).map((row: unknown) => mapRun(row as Row));
+  },
+
+  getRun(db: Database.Database, agentId: string, runId: string) {
+    const row = db.prepare(`
+      SELECT *
+      FROM runs
+      WHERE id = ? AND agent_id = ?
+    `).get(runId, agentId) as Row | undefined;
+    return row ? mapRun(row) : null;
+  },
+
+  createRun(
+    db: Database.Database,
+    input: {
+      agentId: string;
+      prompt: string;
+      model?: string | null;
+      cwd?: string | null;
+      status?: RunStatus;
+    },
+  ) {
+    const run = {
+      id: randomUUID(),
+      agentId: input.agentId,
+      prompt: input.prompt,
+      status: input.status ?? "pending",
+      output: "",
+      exitCode: null,
+      model: input.model ?? null,
+      cwd: input.cwd ?? null,
+      startedAt: null,
+      finishedAt: null,
+      createdAt: new Date().toISOString(),
+    };
+    db.prepare(`
+      INSERT INTO runs (
+        id, agent_id, prompt, status, output, exit_code, model, cwd, started_at, finished_at, created_at
+      ) VALUES (
+        @id, @agentId, @prompt, @status, @output, @exitCode, @model, @cwd, @startedAt, @finishedAt, @createdAt
+      )
+    `).run(run);
+    return this.getRun(db, input.agentId, run.id);
+  },
+
+  updateRun(
+    db: Database.Database,
+    runId: string,
+    input: {
+      status?: RunStatus;
+      output?: string;
+      exitCode?: number | null;
+      model?: string | null;
+      cwd?: string | null;
+      startedAt?: string | null;
+      finishedAt?: string | null;
+    },
+  ) {
+    const current = db.prepare("SELECT * FROM runs WHERE id = ?").get(runId) as Row | undefined;
+    if (!current) return null;
+    const next = {
+      id: String(current.id),
+      agentId: String(current.agent_id),
+      prompt: String(current.prompt),
+      status: input.status ?? (String(current.status) as RunStatus),
+      output: input.output ?? String(current.output ?? ""),
+      exitCode:
+        input.exitCode === undefined
+          ? current.exit_code === null || current.exit_code === undefined
+            ? null
+            : Number(current.exit_code)
+          : input.exitCode,
+      model: input.model ?? (current.model ? String(current.model) : null),
+      cwd: input.cwd ?? (current.cwd ? String(current.cwd) : null),
+      startedAt:
+        input.startedAt === undefined
+          ? current.started_at
+            ? String(current.started_at)
+            : null
+          : input.startedAt,
+      finishedAt:
+        input.finishedAt === undefined
+          ? current.finished_at
+            ? String(current.finished_at)
+            : null
+          : input.finishedAt,
+      createdAt: String(current.created_at),
+    };
+
+    db.prepare(`
+      UPDATE runs
+      SET status = @status,
+          output = @output,
+          exit_code = @exitCode,
+          model = @model,
+          cwd = @cwd,
+          started_at = @startedAt,
+          finished_at = @finishedAt
+      WHERE id = @id
+    `).run(next);
+
+    return this.getRun(db, next.agentId, next.id);
+  },
+
+  listChatMessages(db: Database.Database, agentId: string) {
+    return db.prepare(`
+      SELECT *
+      FROM chat_messages
+      WHERE agent_id = ?
+      ORDER BY created_at ASC
+    `).all(agentId).map((row: unknown) => mapChatMessage(row as Row));
+  },
+
+  addChatMessage(
+    db: Database.Database,
+    input: { agentId: string; runId?: string | null; role: ChatMessageRole; content: string },
+  ) {
+    const message = {
+      id: randomUUID(),
+      agentId: input.agentId,
+      runId: input.runId ?? null,
+      role: input.role,
+      content: input.content,
+      createdAt: new Date().toISOString(),
+    };
+    db.prepare(`
+      INSERT INTO chat_messages (id, agent_id, run_id, role, content, created_at)
+      VALUES (@id, @agentId, @runId, @role, @content, @createdAt)
+    `).run(message);
+    return mapChatMessage({
+      id: message.id,
+      agent_id: message.agentId,
+      run_id: message.runId,
+      role: message.role,
+      content: message.content,
+      created_at: message.createdAt,
+    });
+  },
+
+  getAgentChat(db: Database.Database, agentId: string): AgentChatResponse {
+    return {
+      agentId,
+      messages: this.listChatMessages(db, agentId),
+      runs: this.listAgentRuns(db, agentId),
+    };
+  },
+
   saveAgent(db: Database.Database, payload: Partial<AgentRecord>) {
     const id = payload.id ?? randomUUID();
     const now = new Date().toISOString();
@@ -369,6 +579,7 @@ export const store = {
       prompt: payload.prompt ?? current?.prompt ?? "",
       skillsJson: JSON.stringify(payload.skills ?? parseJson<string[]>(current?.skills_json, [])),
       color: payload.color ?? current?.color ?? "#007AFF",
+      adapterConfigJson: JSON.stringify(payload.adapterConfig ?? parseAdapterConfig(current?.adapter_config_json)),
       createdAt: current?.created_at ?? now,
       updatedAt: now,
     };
@@ -376,10 +587,10 @@ export const store = {
     db.prepare(`
       INSERT INTO agents (
         id, name, role, team, status, adapter_type, reports_to_id, last_heartbeat_at,
-        cost_per_hour, prompt, skills_json, color, created_at, updated_at
+        cost_per_hour, prompt, skills_json, color, adapter_config_json, created_at, updated_at
       ) VALUES (
         @id, @name, @role, @team, @status, @adapterType, @reportsToId, @lastHeartbeatAt,
-        @costPerHour, @prompt, @skillsJson, @color, @createdAt, @updatedAt
+        @costPerHour, @prompt, @skillsJson, @color, @adapterConfigJson, @createdAt, @updatedAt
       )
       ON CONFLICT(id) DO UPDATE SET
         name = excluded.name,
@@ -393,6 +604,7 @@ export const store = {
         prompt = excluded.prompt,
         skills_json = excluded.skills_json,
         color = excluded.color,
+        adapter_config_json = excluded.adapter_config_json,
         updated_at = excluded.updated_at
     `).run(next);
 
@@ -402,6 +614,8 @@ export const store = {
   deleteAgent(db: Database.Database, agentId: string) {
     db.prepare("UPDATE tasks SET assignee_id = NULL WHERE assignee_id = ?").run(agentId);
     db.prepare("UPDATE agents SET reports_to_id = NULL WHERE reports_to_id = ?").run(agentId);
+    db.prepare("DELETE FROM chat_messages WHERE agent_id = ?").run(agentId);
+    db.prepare("DELETE FROM runs WHERE agent_id = ?").run(agentId);
     db.prepare("DELETE FROM agents WHERE id = ?").run(agentId);
   },
 

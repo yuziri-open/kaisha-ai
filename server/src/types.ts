@@ -1,13 +1,23 @@
 import type Database from "better-sqlite3";
 import type { SseService } from "./services/sse.js";
 
-export type AgentStatus = "稼働中" | "待機" | "注意" | "停止";
-export type TaskStatus = "バックログ" | "進行中" | "レビュー" | "完了";
-export type TaskPriority = "低" | "中" | "高" | "緊急";
-export type GoalLevel = "会社" | "プロジェクト" | "タスク";
+export type AgentStatus = string;
+export type TaskStatus = string;
+export type TaskPriority = string;
+export type GoalLevel = string;
 export type RoutineScheduleType = "cron" | "interval";
-export type RoutineRunStatus = "成功" | "失敗" | "実行中" | "待機";
-export type ApprovalStatus = "承認待ち" | "承認" | "却下";
+export type RoutineRunStatus = string;
+export type ApprovalStatus = string;
+export type RunStatus = "pending" | "running" | "completed" | "failed";
+export type ChatMessageRole = "user" | "assistant" | "system";
+
+export interface CodexAdapterConfig {
+  model?: string;
+  cwd?: string;
+  fullAuto?: boolean;
+  timeoutSec?: number;
+  env?: Record<string, string>;
+}
 
 export interface ActivityItem {
   id: string;
@@ -44,6 +54,7 @@ export interface AgentRecord {
   prompt: string;
   skills: string[];
   color: string;
+  adapterConfig: CodexAdapterConfig;
   createdAt: string;
   updatedAt: string;
 }
@@ -64,6 +75,35 @@ export interface AgentDetailResponse {
   agent: AgentRecord;
   taskHistory: TaskRecord[];
   heartbeats: HeartbeatLog[];
+}
+
+export interface RunRecord {
+  id: string;
+  agentId: string;
+  prompt: string;
+  status: RunStatus;
+  output: string;
+  exitCode: number | null;
+  model: string | null;
+  cwd: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  createdAt: string;
+}
+
+export interface ChatMessageRecord {
+  id: string;
+  agentId: string;
+  runId: string | null;
+  role: ChatMessageRole;
+  content: string;
+  createdAt: string;
+}
+
+export interface AgentChatResponse {
+  agentId: string;
+  messages: ChatMessageRecord[];
+  runs: RunRecord[];
 }
 
 export interface TaskRecord {
@@ -188,4 +228,3 @@ export interface AppContext {
   db: Database.Database;
   sse: SseService;
 }
-

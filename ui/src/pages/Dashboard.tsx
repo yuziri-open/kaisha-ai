@@ -95,7 +95,23 @@ export function DashboardPage() {
           </div>
           <div className="grid gap-4 md:grid-cols-2">
             {query.data.liveAgents.map((la) => (
-              <AgentCard key={la.id} agent={{ ...la, team: "", adapterType: "", reportsToId: null, costPerHour: 0, monthlyCost: 0, prompt: "", skills: [], createdAt: la.lastHeartbeatAt ?? "", updatedAt: la.lastHeartbeatAt ?? "" }} live={la} />
+              <AgentCard
+                key={la.id}
+                agent={{
+                  ...la,
+                  team: "",
+                  adapterType: "",
+                  reportsToId: null,
+                  costPerHour: 0,
+                  monthlyCost: 0,
+                  prompt: "",
+                  skills: [],
+                  adapterConfig: {},
+                  createdAt: la.lastHeartbeatAt ?? "",
+                  updatedAt: la.lastHeartbeatAt ?? "",
+                }}
+                live={la}
+              />
             ))}
             {query.data.liveAgents.length === 0 && (
               <div className="glass col-span-full rounded-[20px] p-8 text-center">
