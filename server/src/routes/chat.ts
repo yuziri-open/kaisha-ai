@@ -1,12 +1,15 @@
 import { Router, type Request, type Response } from "express";
 import { executeCodex } from "../adapters/codex.js";
+import { executeClaude } from "../adapters/claude.js";
 import { store } from "../db/store.js";
-import type { AppContext, CodexAdapterConfig } from "../types.js";
+import type { AppContext, CodexAdapterConfig, ClaudeAdapterConfig } from "../types.js";
 
-const DEFAULT_MODEL = "gpt-5.4-codex";
+const DEFAULT_CODEX_MODEL = "gpt-5.4-codex";
+const DEFAULT_CLAUDE_MODEL = "claude-sonnet-4-20250514";
 const DEFAULT_TIMEOUT_SEC = 300;
+const DEFAULT_CLAUDE_TIMEOUT_SEC = 600;
 
-function parseConfig(input: unknown): CodexAdapterConfig {
+function parseCodexConfig(input: unknown): CodexAdapterConfig {
   if (typeof input !== "object" || input === null || Array.isArray(input)) {
     return {};
   }
@@ -30,12 +33,49 @@ function parseConfig(input: unknown): CodexAdapterConfig {
   };
 }
 
-function mergeConfig(base: CodexAdapterConfig, override: CodexAdapterConfig): CodexAdapterConfig {
+function parseClaudeConfig(input: unknown): ClaudeAdapterConfig {
+  if (typeof input !== "object" || input === null || Array.isArray(input)) {
+    return {};
+  }
+
+  const record = input as Record<string, unknown>;
+  const env =
+    typeof record.env === "object" && record.env !== null && !Array.isArray(record.env)
+      ? Object.fromEntries(
+          Object.entries(record.env).filter(
+            (entry): entry is [string, string] => typeof entry[1] === "string",
+          ),
+        )
+      : undefined;
+
   return {
-    model: override.model ?? base.model ?? DEFAULT_MODEL,
+    model: typeof record.model === "string" ? record.model : undefined,
+    cwd: typeof record.cwd === "string" ? record.cwd : undefined,
+    maxTurns: typeof record.maxTurns === "number" ? record.maxTurns : undefined,
+    timeoutSec: typeof record.timeoutSec === "number" ? record.timeoutSec : undefined,
+    env,
+  };
+}
+
+function mergeCodexConfig(base: CodexAdapterConfig, override: CodexAdapterConfig): CodexAdapterConfig {
+  return {
+    model: override.model ?? base.model ?? DEFAULT_CODEX_MODEL,
     cwd: override.cwd ?? base.cwd,
     fullAuto: override.fullAuto ?? base.fullAuto ?? true,
     timeoutSec: override.timeoutSec ?? base.timeoutSec ?? DEFAULT_TIMEOUT_SEC,
+    env: {
+      ...(base.env ?? {}),
+      ...(override.env ?? {}),
+    },
+  };
+}
+
+function mergeClaudeConfig(base: ClaudeAdapterConfig, override: ClaudeAdapterConfig): ClaudeAdapterConfig {
+  return {
+    model: override.model ?? base.model ?? DEFAULT_CLAUDE_MODEL,
+    cwd: override.cwd ?? base.cwd,
+    maxTurns: override.maxTurns ?? base.maxTurns ?? 10,
+    timeoutSec: override.timeoutSec ?? base.timeoutSec ?? DEFAULT_CLAUDE_TIMEOUT_SEC,
     env: {
       ...(base.env ?? {}),
       ...(override.env ?? {}),
@@ -56,18 +96,25 @@ async function startRun(
   context: AppContext,
   input: {
     agentId: string;
+    adapterType: string;
     agentPrompt: string;
-    baseConfig: CodexAdapterConfig;
+    baseConfig: CodexAdapterConfig | ClaudeAdapterConfig;
     message: string;
     runId: string;
   },
 ) {
+  const isClaudeAdapter = input.adapterType === "Claude Code";
+  const defaultModel = isClaudeAdapter ? DEFAULT_CLAUDE_MODEL : DEFAULT_CODEX_MODEL;
+  const defaultTimeout = isClaudeAdapter ? DEFAULT_CLAUDE_TIMEOUT_SEC : DEFAULT_TIMEOUT_SEC;
+
   const effectiveConfig = {
-    model: input.baseConfig.model ?? DEFAULT_MODEL,
+    model: input.baseConfig.model ?? defaultModel,
     cwd: input.baseConfig.cwd,
-    fullAuto: input.baseConfig.fullAuto ?? true,
-    timeoutSec: input.baseConfig.timeoutSec ?? DEFAULT_TIMEOUT_SEC,
+    timeoutSec: input.baseConfig.timeoutSec ?? defaultTimeout,
     env: input.baseConfig.env ?? {},
+    ...(isClaudeAdapter
+      ? { maxTurns: (input.baseConfig as ClaudeAdapterConfig).maxTurns ?? 10 }
+      : { fullAuto: (input.baseConfig as CodexAdapterConfig).fullAuto ?? true }),
   };
 
   const runningRun = store.updateRun(context.db, input.runId, {
@@ -85,27 +132,39 @@ async function startRun(
     },
   });
 
-  const result = await executeCodex({
-    prompt: buildPrompt(input.agentPrompt, input.message),
-    config: effectiveConfig,
-    onOutput: async (event) => {
-      context.sse.broadcast({
-        type: "run:output",
-        payload: {
-          agentId: input.agentId,
-          runId: input.runId,
-          ...event,
-        },
+  const onOutput = async (event: { stream: string; line: string; at: string }) => {
+    context.sse.broadcast({
+      type: "run:output",
+      payload: {
+        agentId: input.agentId,
+        runId: input.runId,
+        ...event,
+      },
+    });
+  };
+
+  const fullPrompt = buildPrompt(input.agentPrompt, input.message);
+
+  const executeAdapter = isClaudeAdapter
+    ? executeClaude({
+        prompt: fullPrompt,
+        config: effectiveConfig as ClaudeAdapterConfig,
+        onOutput,
+      })
+    : executeCodex({
+        prompt: fullPrompt,
+        config: effectiveConfig as CodexAdapterConfig,
+        onOutput,
       });
-    },
-  }).catch((error: Error) => ({
+
+  const result = await executeAdapter.catch((error: Error) => ({
     status: "failed" as const,
     output: "",
     exitCode: null,
     signal: null,
     startedAt: new Date().toISOString(),
     finishedAt: new Date().toISOString(),
-    model: effectiveConfig.model ?? DEFAULT_MODEL,
+    model: effectiveConfig.model ?? defaultModel,
     cwd: effectiveConfig.cwd ?? process.cwd(),
     timedOut: false,
     errorMessage: error.message,
@@ -165,17 +224,28 @@ export function chatRoutes(context: AppContext) {
       return;
     }
 
-    const overrideConfig = parseConfig(req.body?.config);
-    const effectiveConfig = mergeConfig(agent.adapterConfig, overrideConfig);
+    const adapterType = agent.adapterType || "Codex";
+    const isClaudeAdapter = adapterType === "Claude Code";
+
+    const effectiveConfig = isClaudeAdapter
+      ? mergeClaudeConfig(
+          agent.adapterConfig as ClaudeAdapterConfig,
+          parseClaudeConfig(req.body?.config),
+        )
+      : mergeCodexConfig(
+          agent.adapterConfig as CodexAdapterConfig,
+          parseCodexConfig(req.body?.config),
+        );
     const userMessage = store.addChatMessage(context.db, {
       agentId: agent.id,
       role: "user",
       content: message,
     });
+    const defaultModel = isClaudeAdapter ? DEFAULT_CLAUDE_MODEL : DEFAULT_CODEX_MODEL;
     const run = store.createRun(context.db, {
       agentId: agent.id,
       prompt: message,
-      model: effectiveConfig.model ?? DEFAULT_MODEL,
+      model: effectiveConfig.model ?? defaultModel,
       cwd: effectiveConfig.cwd ?? null,
       status: "pending",
     });
@@ -197,6 +267,7 @@ export function chatRoutes(context: AppContext) {
 
     void startRun(context, {
       agentId: agent.id,
+      adapterType,
       agentPrompt: agent.prompt,
       baseConfig: effectiveConfig,
       message,

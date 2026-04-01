@@ -8,18 +8,20 @@ import { Button } from "@/components/ui/button";
 import { Card, CardSubtle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import type { CodexAdapterConfig } from "@/lib/types";
+import type { CodexAdapterConfig, ClaudeAdapterConfig } from "@/lib/types";
 
-const MODEL_OPTIONS = ["gpt-5.4-codex", "gpt-5.4", "o3", "o4-mini"];
+const CODEX_MODEL_OPTIONS = ["gpt-5.4-codex", "gpt-5.4", "o3", "o4-mini"];
+const CLAUDE_MODEL_OPTIONS = ["claude-sonnet-4-20250514", "claude-opus-4-20250514", "claude-haiku-3-5-20241022"];
 
 export function AgentDetailPage() {
   const params = useParams<{ agentId: string }>();
   const queryClient = useQueryClient();
   const [adapterType, setAdapterType] = useState("Codex");
-  const [config, setConfig] = useState<CodexAdapterConfig>({
+  const [config, setConfig] = useState<CodexAdapterConfig & ClaudeAdapterConfig>({
     model: "gpt-5.4-codex",
     cwd: "",
     fullAuto: true,
+    maxTurns: 10,
     timeoutSec: 300,
   });
 
@@ -31,13 +33,17 @@ export function AgentDetailPage() {
 
   useEffect(() => {
     if (!query.data) return;
-    setAdapterType(query.data.agent.adapterType || "Codex");
+    const agentAdapterType = query.data.agent.adapterType || "Codex";
+    const adapterCfg = query.data.agent.adapterConfig;
+    const isClaude = agentAdapterType === "Claude Code";
+    setAdapterType(agentAdapterType);
     setConfig({
-      model: query.data.agent.adapterConfig.model || "gpt-5.4-codex",
-      cwd: query.data.agent.adapterConfig.cwd || "",
-      fullAuto: query.data.agent.adapterConfig.fullAuto ?? true,
-      timeoutSec: query.data.agent.adapterConfig.timeoutSec ?? 300,
-      env: query.data.agent.adapterConfig.env ?? {},
+      model: adapterCfg.model || (isClaude ? "claude-sonnet-4-20250514" : "gpt-5.4-codex"),
+      cwd: adapterCfg.cwd || "",
+      fullAuto: "fullAuto" in adapterCfg ? (adapterCfg as CodexAdapterConfig).fullAuto ?? true : true,
+      maxTurns: "maxTurns" in adapterCfg ? (adapterCfg as ClaudeAdapterConfig).maxTurns ?? 10 : 10,
+      timeoutSec: adapterCfg.timeoutSec ?? (isClaude ? 600 : 300),
+      env: adapterCfg.env ?? {},
     });
   }, [query.data]);
 
@@ -113,7 +119,7 @@ export function AgentDetailPage() {
           <div>
             <div className="flex items-center gap-2 text-foreground">
               <Bot size={18} />
-              <h3 className="text-xl font-semibold">Codex アダプター設定</h3>
+              <h3 className="text-xl font-semibold">{adapterType === "Claude Code" ? "Claude Code" : "Codex"} アダプター設定</h3>
             </div>
             <p className="mt-2 text-sm text-muted-foreground">
               この設定はチャット画面の既定値として使われます。
@@ -140,9 +146,17 @@ export function AgentDetailPage() {
             <select
               className="w-full rounded-[14px] border border-[var(--glass-border)] bg-[var(--glass-bg)] px-4 py-3 text-sm text-foreground outline-none"
               value={adapterType}
-              onChange={(event) => setAdapterType(event.target.value)}
+              onChange={(event) => {
+                const newType = event.target.value;
+                setAdapterType(newType);
+                setConfig((current) => ({
+                  ...current,
+                  model: newType === "Claude Code" ? "claude-sonnet-4-20250514" : "gpt-5.4-codex",
+                }));
+              }}
             >
               <option value="Codex">Codex</option>
+              <option value="Claude Code">Claude Code</option>
             </select>
           </label>
 
@@ -150,10 +164,10 @@ export function AgentDetailPage() {
             <span className="text-xs font-medium tracking-[0.08em] text-muted-foreground">モデル</span>
             <select
               className="w-full rounded-[14px] border border-[var(--glass-border)] bg-[var(--glass-bg)] px-4 py-3 text-sm text-foreground outline-none"
-              value={config.model ?? "gpt-5.4-codex"}
+              value={config.model ?? (adapterType === "Claude Code" ? "claude-sonnet-4-20250514" : "gpt-5.4-codex")}
               onChange={(event) => setConfig((current) => ({ ...current, model: event.target.value }))}
             >
-              {MODEL_OPTIONS.map((model) => (
+              {(adapterType === "Claude Code" ? CLAUDE_MODEL_OPTIONS : CODEX_MODEL_OPTIONS).map((model) => (
                 <option key={model} value={model}>
                   {model}
                 </option>
@@ -187,18 +201,36 @@ export function AgentDetailPage() {
             />
           </label>
 
-          <label className="glass-subtle flex items-center justify-between rounded-[18px] px-4 py-3">
-            <div>
-              <p className="text-sm font-medium text-foreground">`--full-auto` を有効にする</p>
-              <p className="mt-1 text-xs text-muted-foreground">承認なしで Codex に処理を進めさせます。</p>
-            </div>
-            <input
-              type="checkbox"
-              className="h-4 w-4 accent-[#007AFF]"
-              checked={config.fullAuto ?? true}
-              onChange={(event) => setConfig((current) => ({ ...current, fullAuto: event.target.checked }))}
-            />
-          </label>
+          {adapterType === "Claude Code" ? (
+            <label className="space-y-2">
+              <span className="text-xs font-medium tracking-[0.08em] text-muted-foreground">最大ターン数</span>
+              <Input
+                type="number"
+                min={1}
+                max={100}
+                value={config.maxTurns ?? 10}
+                onChange={(event) =>
+                  setConfig((current) => ({
+                    ...current,
+                    maxTurns: Number(event.target.value) || 10,
+                  }))
+                }
+              />
+            </label>
+          ) : (
+            <label className="glass-subtle flex items-center justify-between rounded-[18px] px-4 py-3">
+              <div>
+                <p className="text-sm font-medium text-foreground">`--full-auto` を有効にする</p>
+                <p className="mt-1 text-xs text-muted-foreground">承認なしで Codex に処理を進めさせます。</p>
+              </div>
+              <input
+                type="checkbox"
+                className="h-4 w-4 accent-[#007AFF]"
+                checked={config.fullAuto ?? true}
+                onChange={(event) => setConfig((current) => ({ ...current, fullAuto: event.target.checked }))}
+              />
+            </label>
+          )}
         </div>
 
         {saveMutation.isError ? (

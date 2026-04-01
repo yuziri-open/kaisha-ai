@@ -19,6 +19,14 @@ export interface CodexAdapterConfig {
   env?: Record<string, string>;
 }
 
+export interface ClaudeAdapterConfig {
+  model?: string;
+  cwd?: string;
+  maxTurns?: number;
+  timeoutSec?: number;
+  env?: Record<string, string>;
+}
+
 export interface ActivityItem {
   id: string;
   kind: string;
@@ -54,7 +62,7 @@ export interface AgentRecord {
   prompt: string;
   skills: string[];
   color: string;
-  adapterConfig: CodexAdapterConfig;
+  adapterConfig: CodexAdapterConfig | ClaudeAdapterConfig;
   createdAt: string;
   updatedAt: string;
 }
