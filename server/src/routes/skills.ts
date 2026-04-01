@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { readdirSync, readFileSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { store } from "../db/store.js";
 import type { AppContext } from "../types.js";
@@ -40,18 +40,44 @@ export function skillRoutes(context: AppContext) {
     res.status(204).end();
   });
 
-  router.post("/skills/import", (_req, res) => {
-    const skillsDir = path.resolve(import.meta.dirname, "../../data/skills");
+  router.post("/skills/import", (req, res) => {
+    const requestedDir = typeof req.body?.directory === "string" && req.body.directory.trim()
+      ? req.body.directory.trim()
+      : path.resolve(import.meta.dirname, "../../data/skills");
+
+    try {
+      const stat = statSync(requestedDir);
+      if (!stat.isDirectory()) {
+        res.status(400).json({ message: "指定パスがディレクトリではありません。" });
+        return;
+      }
+    } catch {
+      res.status(400).json({ message: "指定ディレクトリが見つかりません。" });
+      return;
+    }
+
     let files: string[] = [];
-    try { files = readdirSync(skillsDir).filter((f) => f.endsWith(".md")); } catch { /* empty */ }
+    try {
+      files = readdirSync(requestedDir).filter((f) => f.toLowerCase().endsWith(".md"));
+    } catch {
+      files = [];
+    }
+
     const imported: string[] = [];
     for (const file of files) {
-      const content = readFileSync(path.join(skillsDir, file), "utf-8");
-      const name = file.replace(/\.md$/, "");
-      store.saveSkill(context.db, { name, description: `${file} からインポート`, content, filePath: file });
+      const fullPath = path.join(requestedDir, file);
+      const content = readFileSync(fullPath, "utf-8");
+      const name = file.replace(/\.md$/i, "");
+      store.saveSkill(context.db, {
+        name,
+        description: `${file} からインポート`,
+        content,
+        filePath: fullPath,
+      });
       imported.push(name);
     }
-    res.json({ imported });
+
+    res.json({ imported, directory: requestedDir, count: imported.length });
   });
 
   router.get("/agents/:id/skills", (req, res) => {

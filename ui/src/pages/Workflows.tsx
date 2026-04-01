@@ -66,6 +66,17 @@ export function WorkflowsPage() {
         </div>
       </Card>
 
+      {workflows.length === 0 ? (
+        <Card className="p-10">
+          <div className="mx-auto max-w-xl text-center">
+            <h3 className="text-xl font-semibold text-foreground">まだワークフローがありません</h3>
+            <p className="mt-2 text-sm leading-7 text-muted-foreground">複数エージェントの順次実行が必要な処理を、ここでテンプレート化できます。</p>
+            <div className="mt-6 flex justify-center">
+              <Button onClick={() => setEditing(emptyWorkflow)}><Plus size={16} />ワークフロー追加</Button>
+            </div>
+          </div>
+        </Card>
+      ) : (
       <div className="grid gap-4 xl:grid-cols-2">
         {workflows.map((workflow) => (
           <Card key={workflow.id} className="p-5">
@@ -97,6 +108,7 @@ export function WorkflowsPage() {
           </Card>
         ))}
       </div>
+      )}
 
       <Dialog open={Boolean(editing)} onClose={() => setEditing(null)} title={editing?.id ? "ワークフロー編集" : "ワークフロー追加"} description="ステップごとの担当エージェントとプロンプトを定義します。">
         {editing ? <WorkflowEditor initial={editing} agents={agents} onSubmit={(payload) => saveMutation.mutate(payload)} /> : null}
