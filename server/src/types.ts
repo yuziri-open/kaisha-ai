@@ -27,6 +27,13 @@ export interface ClaudeAdapterConfig {
   env?: Record<string, string>;
 }
 
+export interface OpenClawAdapterConfig {
+  model?: string;
+  gatewayUrl?: string;
+  timeoutSec?: number;
+  env?: Record<string, string>;
+}
+
 export interface ActivityItem {
   id: string;
   kind: string;
@@ -62,7 +69,7 @@ export interface AgentRecord {
   prompt: string;
   skills: string[];
   color: string;
-  adapterConfig: CodexAdapterConfig | ClaudeAdapterConfig;
+  adapterConfig: CodexAdapterConfig | ClaudeAdapterConfig | OpenClawAdapterConfig;
   createdAt: string;
   updatedAt: string;
 }

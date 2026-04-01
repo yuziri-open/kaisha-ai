@@ -1,10 +1,11 @@
-import { BellDot, Bot, ClipboardList, Coins, Flag, Gauge, Network, Repeat, Settings2 } from "lucide-react";
+import { BellDot, Bot, ClipboardList, Coins, Flag, Gauge, Network, Repeat, ScrollText, Settings2 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "./ThemeToggle";
 
 const items = [
   { to: "/", label: "ダッシュボード", icon: Gauge, end: true },
+  { to: "/activity", label: "アクティビティ", icon: ScrollText },
   { to: "/agents", label: "エージェント", icon: Bot },
   { to: "/tasks", label: "タスク", icon: ClipboardList },
   { to: "/goals", label: "ゴール", icon: Flag },

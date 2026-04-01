@@ -341,6 +341,31 @@ export const store = {
     `).all(limit).map((row: unknown) => mapActivity(row as Row));
   },
 
+  listActivitiesFiltered(
+    db: Database.Database,
+    opts: { kind?: string; limit: number; offset: number },
+  ) {
+    if (opts.kind) {
+      const rows = db.prepare(`
+        SELECT id, kind, title, description, occurred_at, entity_type, entity_id
+        FROM activities
+        WHERE kind = ?
+        ORDER BY occurred_at DESC
+        LIMIT ? OFFSET ?
+      `).all(opts.kind, opts.limit, opts.offset) as Row[];
+      const totalRow = db.prepare(`SELECT COUNT(*) AS cnt FROM activities WHERE kind = ?`).get(opts.kind) as Row;
+      return { items: rows.map(mapActivity), total: Number(totalRow.cnt) };
+    }
+    const rows = db.prepare(`
+      SELECT id, kind, title, description, occurred_at, entity_type, entity_id
+      FROM activities
+      ORDER BY occurred_at DESC
+      LIMIT ? OFFSET ?
+    `).all(opts.limit, opts.offset) as Row[];
+    const totalRow = db.prepare(`SELECT COUNT(*) AS cnt FROM activities`).get() as Row;
+    return { items: rows.map(mapActivity), total: Number(totalRow.cnt) };
+  },
+
   addActivity(
     db: Database.Database,
     input: { kind: string; title: string; description: string; entityType?: string | null; entityId?: string | null }

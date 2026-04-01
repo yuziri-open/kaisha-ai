@@ -9,8 +9,11 @@ export function dashboardRoutes(context: AppContext) {
     res.json(store.listDashboard(context.db));
   });
 
-  router.get("/activity", (_req, res) => {
-    res.json(store.listActivities(context.db));
+  router.get("/activity", (req, res) => {
+    const kind = typeof req.query.kind === "string" ? req.query.kind : undefined;
+    const limit = typeof req.query.limit === "string" ? Math.min(200, Math.max(1, Number(req.query.limit) || 100)) : 100;
+    const offset = typeof req.query.offset === "string" ? Math.max(0, Number(req.query.offset) || 0) : 0;
+    res.json(store.listActivitiesFiltered(context.db, { kind, limit, offset }));
   });
 
   return router;

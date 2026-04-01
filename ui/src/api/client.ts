@@ -45,7 +45,10 @@ type ActivityItem = {
 
 export const api = {
   dashboard: () => request<DashboardData>("/api/dashboard"),
-  activities: () => request<ActivityItem[]>("/api/activity"),
+  activities: (kind?: string) =>
+    request<{ items: ActivityItem[]; total: number }>(
+      kind ? `/api/activity?kind=${encodeURIComponent(kind)}&limit=100` : "/api/activity?limit=100",
+    ),
   agents: () => request<{ agents: Agent[]; orgChart: Array<Agent & { children: Agent[] }> }>("/api/agents"),
   agent: (agentId: string) => request<AgentDetailData>(`/api/agents/${agentId}`),
   createAgent: (payload: Partial<Agent>) =>

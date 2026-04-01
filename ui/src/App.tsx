@@ -12,12 +12,14 @@ import { SettingsPage } from "@/pages/Settings";
 import { TaskDetailPage } from "@/pages/TaskDetail";
 import { TasksPage } from "@/pages/Tasks";
 import { OrgPage } from "@/pages/Org";
+import { ActivityPage } from "@/pages/Activity";
 
 export function App() {
   return (
     <Routes>
       <Route element={<Layout />}>
         <Route index element={<DashboardPage />} />
+        <Route path="/activity" element={<ActivityPage />} />
         <Route path="/agents" element={<AgentsPage />} />
         <Route path="/agents/:agentId" element={<AgentDetailPage />} />
         <Route path="/agents/:agentId/chat" element={<AgentChatPage />} />
