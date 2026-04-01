@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
 import type { CodexAdapterConfig } from "../types.js";
+import { registerProcess } from "../services/process-registry.js";
 
 // Windows では codex.cmd のフルパスを使用してPATH問題を回避
 const CODEX_BIN =
@@ -40,6 +41,7 @@ export interface CodexExecutionResult {
 
 type ExecuteCodexOptions = {
   prompt: string;
+  runId?: string;
   config?: CodexAdapterConfig;
   onOutput?: (event: CodexOutputEvent) => void | Promise<void>;
   onSpawn?: (meta: { pid: number; startedAt: string; model: string; cwd: string }) => void | Promise<void>;
@@ -99,6 +101,8 @@ export async function executeCodex(options: ExecuteCodexOptions): Promise<CodexE
       shell: true,
       windowsHide: true,
     });
+
+    if (options.runId) registerProcess(options.runId, child);
 
     const complete = async (payload: Omit<CodexExecutionResult, "output">) => {
       if (finished) return;

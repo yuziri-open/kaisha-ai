@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import type { ClaudeAdapterConfig } from "../types.js";
 import type { CodexExecutionResult, CodexOutputEvent } from "./codex.js";
+import { registerProcess } from "../services/process-registry.js";
 
 // Windows では claude.exe のフルパスを使用してPATH問題を回避
 const CLAUDE_BIN =
@@ -21,6 +22,7 @@ const DEFAULT_MAX_TURNS = 10;
 
 type ExecuteClaudeOptions = {
   prompt: string;
+  runId?: string;
   config?: ClaudeAdapterConfig;
   onOutput?: (event: CodexOutputEvent) => void | Promise<void>;
   onSpawn?: (meta: { pid: number; startedAt: string; model: string; cwd: string }) => void | Promise<void>;
@@ -96,6 +98,8 @@ export async function executeClaude(options: ExecuteClaudeOptions): Promise<Code
       shell: true,
       windowsHide: true,
     });
+
+    if (options.runId) registerProcess(options.runId, child);
 
     const complete = async (payload: Omit<CodexExecutionResult, "output">) => {
       if (finished) return;

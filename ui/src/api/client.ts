@@ -64,6 +64,8 @@ export const api = {
     }),
   agentRuns: (agentId: string) => request<{ runs: AgentRun[] }>(`/api/agents/${agentId}/runs`),
   agentRun: (agentId: string, runId: string) => request<{ run: AgentRun }>(`/api/agents/${agentId}/runs/${runId}`),
+  cancelRun: (agentId: string, runId: string) =>
+    request<{ cancelled: boolean }>(`/api/agents/${agentId}/runs/${runId}/cancel`, { method: "POST" }),
   tasks: () => request<{ tasks: Task[] }>("/api/tasks"),
   task: (taskId: string) => request<Task>(`/api/tasks/${taskId}`),
   createTask: (payload: Partial<Task>) => request<Task>("/api/tasks", { method: "POST", body: JSON.stringify(payload) }),

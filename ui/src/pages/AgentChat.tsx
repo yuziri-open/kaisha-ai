@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, Bot, FolderCode, LoaderCircle, Save, SendHorizonal } from "lucide-react";
+import { ArrowLeft, Bot, FolderCode, LoaderCircle, Save, SendHorizonal, StopCircle } from "lucide-react";
 import { api } from "@/api/client";
 import { MarkdownMessage } from "@/components/MarkdownMessage";
 import { Badge } from "@/components/ui/badge";
@@ -188,6 +188,18 @@ export function AgentChatPage() {
     },
   });
 
+  const cancelMutation = useMutation({
+    mutationFn: async () => {
+      if (!agentId || !activeRunId) throw new Error("キャンセルする実行がありません。");
+      return await api.cancelRun(agentId, activeRunId);
+    },
+    onSuccess: () => {
+      setActiveRunId(null);
+      setStreamedText("");
+      void queryClient.invalidateQueries({ queryKey: ["agent-chat", agentId] });
+    },
+  });
+
   const displayMessages = useMemo(() => {
     if (!streamedText.trim()) return messages;
     return [
@@ -237,10 +249,20 @@ export function AgentChatPage() {
             <div className="flex items-center gap-3">
               <Badge>{latestRun?.status === "running" ? "実行中" : latestRun?.status === "failed" ? "失敗" : "待機"}</Badge>
               {activeRunId ? (
-                <div className="inline-flex items-center gap-2 text-sm text-[#007AFF]">
-                  <LoaderCircle className="h-4 w-4 animate-spin" />
-                  応答をストリーミング中
-                </div>
+                <>
+                  <div className="inline-flex items-center gap-2 text-sm text-[#007AFF]">
+                    <LoaderCircle className="h-4 w-4 animate-spin" />
+                    応答をストリーミング中
+                  </div>
+                  <button
+                    onClick={() => cancelMutation.mutate()}
+                    disabled={cancelMutation.isPending}
+                    className="inline-flex items-center gap-1.5 rounded-[10px] border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-500 transition hover:bg-red-500/20"
+                  >
+                    <StopCircle size={14} />
+                    停止
+                  </button>
+                </>
               ) : null}
             </div>
           </div>

@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import { executeCodex } from "../adapters/codex.js";
 import { executeClaude } from "../adapters/claude.js";
+import { cancelProcess } from "../services/process-registry.js";
 import { store } from "../db/store.js";
 import type { AppContext, CodexAdapterConfig, ClaudeAdapterConfig } from "../types.js";
 
@@ -148,11 +149,13 @@ async function startRun(
   const executeAdapter = isClaudeAdapter
     ? executeClaude({
         prompt: fullPrompt,
+        runId: input.runId,
         config: effectiveConfig as ClaudeAdapterConfig,
         onOutput,
       })
     : executeCodex({
         prompt: fullPrompt,
+        runId: input.runId,
         config: effectiveConfig as CodexAdapterConfig,
         onOutput,
       });
@@ -296,6 +299,39 @@ export function chatRoutes(context: AppContext) {
     }
 
     res.json({ runs: store.listAgentRuns(context.db, req.params.agentId) });
+  });
+
+  router.post("/agents/:agentId/runs/:runId/cancel", (req, res) => {
+    const agent = store.getAgent(context.db, req.params.agentId);
+    if (!agent) {
+      res.status(404).json({ message: "エージェントが見つかりません。" });
+      return;
+    }
+
+    const run = store.getRun(context.db, req.params.agentId, req.params.runId);
+    if (!run) {
+      res.status(404).json({ message: "実行履歴が見つかりません。" });
+      return;
+    }
+
+    const killed = cancelProcess(req.params.runId);
+    if (!killed && (run.status === "running" || run.status === "pending")) {
+      store.updateRun(context.db, req.params.runId, {
+        status: "failed",
+        output: "ユーザーによりキャンセルされました。",
+        finishedAt: new Date().toISOString(),
+      });
+    }
+
+    context.sse.broadcast({
+      type: "run:complete",
+      payload: {
+        agentId: req.params.agentId,
+        run: store.getRun(context.db, req.params.agentId, req.params.runId),
+      },
+    });
+
+    res.json({ cancelled: true });
   });
 
   router.get("/agents/:agentId/runs/:runId", (req, res) => {
