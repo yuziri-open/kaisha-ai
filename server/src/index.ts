@@ -14,6 +14,8 @@ import { goalRoutes } from "./routes/goals.js";
 import { routineRoutes } from "./routes/routines.js";
 import { settingsRoutes } from "./routes/settings.js";
 import { taskRoutes } from "./routes/tasks.js";
+import { uploadRoutes, UPLOAD_DIR } from "./routes/upload.js";
+import { filesystemRoutes } from "./routes/filesystem.js";
 import { RoutineScheduler } from "./services/cron.js";
 import { HeartbeatService } from "./services/heartbeat.js";
 import { SseService } from "./services/sse.js";
@@ -71,6 +73,11 @@ app.use("/api", routineRoutes(context));
 app.use("/api", costRoutes(context));
 app.use("/api", approvalRoutes(context));
 app.use("/api", settingsRoutes(context));
+app.use("/api", uploadRoutes(context));
+app.use("/api", filesystemRoutes(context));
+
+// Serve uploaded files
+app.use("/uploads", express.static(UPLOAD_DIR));
 
 app.use("/api", (_req, res) => {
   res.status(404).json({ message: "API が見つかりません。" });

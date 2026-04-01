@@ -90,4 +90,25 @@ export const api = {
   settings: () => request<SettingsData>("/api/settings"),
   updateSettings: (payload: Partial<SettingsData>) =>
     request<SettingsData>("/api/settings", { method: "PUT", body: JSON.stringify(payload) }),
+  uploadFile: async (file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    const res = await fetch("/api/upload", { method: "POST", body: form });
+    if (!res.ok) throw new Error("アップロードに失敗しました。");
+    return res.json() as Promise<{
+      id: string;
+      filename: string;
+      originalName: string;
+      mimeType: string;
+      size: number;
+      url: string;
+    }>;
+  },
+  browsePath: (dirPath: string) =>
+    request<{
+      path: string;
+      parent: string;
+      entries: Array<{ name: string; type: "file" | "directory"; size: number }>;
+    }>(`/api/filesystem/browse?path=${encodeURIComponent(dirPath)}`),
+  drives: () => request<{ drives: string[] }>("/api/filesystem/drives"),
 };

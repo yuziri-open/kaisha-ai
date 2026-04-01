@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, Bot, FolderCode, LoaderCircle, Save, SendHorizonal, StopCircle } from "lucide-react";
+import { ArrowLeft, Bot, FolderCode, FolderOpen, LoaderCircle, Paperclip, Save, SendHorizonal, StopCircle, X } from "lucide-react";
 import { api } from "@/api/client";
 import { MarkdownMessage } from "@/components/MarkdownMessage";
+import { DirectoryPicker } from "@/components/DirectoryPicker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardSubtle } from "@/components/ui/card";
@@ -49,6 +50,9 @@ export function AgentChatPage() {
     maxTurns: 10,
     timeoutSec: 300,
   });
+  const [attachments, setAttachments] = useState<Array<{ file: File; uploaded?: { url: string; originalName: string; mimeType: string; size: number }; preview?: string }>>([]);
+  const [showDirPicker, setShowDirPicker] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const agentQuery = useQuery({
     queryKey: ["agent", agentId],
@@ -167,11 +171,42 @@ export function AgentChatPage() {
     },
   });
 
+  const handleFiles = async (files: FileList | File[]) => {
+    const newAttachments = await Promise.all(
+      Array.from(files).map(async (file) => {
+        const preview = file.type.startsWith("image/") ? URL.createObjectURL(file) : undefined;
+        try {
+          const uploaded = await api.uploadFile(file);
+          return { file, uploaded, preview };
+        } catch {
+          return { file, preview };
+        }
+      }),
+    );
+    setAttachments((prev) => [...prev, ...newAttachments]);
+  };
+
+  const removeAttachment = (index: number) => {
+    setAttachments((prev) => {
+      const copy = [...prev];
+      if (copy[index]?.preview) URL.revokeObjectURL(copy[index].preview!);
+      copy.splice(index, 1);
+      return copy;
+    });
+  };
+
   const sendMutation = useMutation({
     mutationFn: async () => {
       if (!agentId) throw new Error("agentId がありません。");
+      const attachmentLines = attachments
+        .filter((a) => a.uploaded)
+        .map((a) => {
+          const isImage = a.uploaded!.mimeType.startsWith("image/");
+          return `[添付ファイル: ${a.uploaded!.url} (${isImage ? "画像" : a.uploaded!.originalName})]`;
+        });
+      const fullMessage = [draft, ...attachmentLines].filter(Boolean).join("\n");
       return await api.sendAgentMessage(agentId, {
-        message: draft,
+        message: fullMessage,
         config,
       });
     },
@@ -186,6 +221,7 @@ export function AgentChatPage() {
         setActiveRunId(run.id);
       }
       setDraft("");
+      setAttachments([]);
       setStreamedText("");
     },
   });
@@ -308,7 +344,38 @@ export function AgentChatPage() {
         </div>
 
         <div className="sticky bottom-0 border-t border-white/10 bg-transparent px-5 pb-5 pt-4">
-          <div className="glass flex flex-col gap-4 rounded-[24px] p-4">
+          <div
+            className="glass flex flex-col gap-4 rounded-[24px] p-4"
+            onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+            onDrop={(e) => { e.preventDefault(); e.stopPropagation(); if (e.dataTransfer.files.length) void handleFiles(e.dataTransfer.files); }}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              className="hidden"
+              onChange={(e) => { if (e.target.files?.length) void handleFiles(e.target.files); e.target.value = ""; }}
+            />
+
+            {attachments.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {attachments.map((a, i) => (
+                  <div key={i} className="glass-subtle relative flex items-center gap-2 rounded-[14px] px-3 py-2 text-xs">
+                    {a.preview ? (
+                      <img src={a.preview} alt="" className="h-10 w-10 rounded-[8px] object-cover" />
+                    ) : null}
+                    <div className="max-w-[120px]">
+                      <p className="truncate text-foreground">{a.file.name}</p>
+                      <p className="text-muted-foreground">{(a.file.size / 1024).toFixed(1)} KB</p>
+                    </div>
+                    <button onClick={() => removeAttachment(i)} className="ml-1 text-muted-foreground hover:text-foreground">
+                      <X size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
             <Textarea
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
@@ -317,7 +384,7 @@ export function AgentChatPage() {
               onKeyDown={(event) => {
                 if (event.key === "Enter" && !event.shiftKey) {
                   event.preventDefault();
-                  if (!draft.trim() || sendMutation.isPending) return;
+                  if ((!draft.trim() && attachments.length === 0) || sendMutation.isPending) return;
                   sendMutation.mutate();
                 }
               }}
@@ -327,14 +394,24 @@ export function AgentChatPage() {
               <p className="text-xs text-muted-foreground">
                 現在の設定: {config.model || "gpt-5.4"} / {config.cwd || "作業ディレクトリ未設定"}
               </p>
-              <Button
-                variant="accent"
-                onClick={() => sendMutation.mutate()}
-                disabled={!draft.trim() || sendMutation.isPending}
-              >
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="rounded-[10px] p-2 text-muted-foreground transition hover:bg-white/10 hover:text-foreground"
+                  title="ファイルを添付"
+                >
+                  <Paperclip size={18} />
+                </button>
+                <Button
+                  variant="accent"
+                  onClick={() => sendMutation.mutate()}
+                  disabled={(!draft.trim() && attachments.length === 0) || sendMutation.isPending}
+                >
                 {sendMutation.isPending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <SendHorizonal size={16} />}
                 {sendMutation.isPending ? "送信中..." : "送信"}
               </Button>
+              </div>
             </div>
 
             {sendMutation.isError ? (
@@ -374,11 +451,22 @@ export function AgentChatPage() {
 
             <label className="space-y-2">
               <span className="text-xs font-medium tracking-[0.08em] text-muted-foreground">作業ディレクトリ</span>
-              <Input
-                value={config.cwd ?? ""}
-                onChange={(event) => setConfig((current) => ({ ...current, cwd: event.target.value }))}
-                placeholder="例: C:\\Users\\coli8\\.openclaw\\workspace\\apps\\kaisha-ai"
-              />
+              <div className="flex gap-2">
+                <Input
+                  value={config.cwd ?? ""}
+                  onChange={(event) => setConfig((current) => ({ ...current, cwd: event.target.value }))}
+                  placeholder="例: C:\\Users\\coli8\\.openclaw\\workspace\\apps\\kaisha-ai"
+                  className="flex-1"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowDirPicker(true)}
+                  className="shrink-0 rounded-[10px] border border-[var(--glass-border)] bg-[var(--glass-bg)] px-3 text-muted-foreground transition hover:text-foreground"
+                  title="フォルダを選択"
+                >
+                  <FolderOpen size={16} />
+                </button>
+              </div>
             </label>
 
             <label className="space-y-2">
@@ -483,6 +571,13 @@ export function AgentChatPage() {
           )}
         </Card>
       </div>
+
+      <DirectoryPicker
+        open={showDirPicker}
+        onClose={() => setShowDirPicker(false)}
+        onSelect={(p) => setConfig((c) => ({ ...c, cwd: p }))}
+        initialPath={config.cwd || "C:\\"}
+      />
     </div>
   );
 }

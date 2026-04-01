@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
-import { Bot, MessageSquare, Save } from "lucide-react";
+import { Bot, FolderOpen, MessageSquare, Save } from "lucide-react";
 import { api } from "@/api/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardSubtle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { DirectoryPicker } from "@/components/DirectoryPicker";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { CodexAdapterConfig, ClaudeAdapterConfig } from "@/lib/types";
 
@@ -24,6 +25,7 @@ export function AgentDetailPage() {
     maxTurns: 10,
     timeoutSec: 300,
   });
+  const [showDirPicker, setShowDirPicker] = useState(false);
 
   const query = useQuery({
     queryKey: ["agent", params.agentId],
@@ -67,6 +69,7 @@ export function AgentDetailPage() {
   const { agent, taskHistory, heartbeats } = query.data;
 
   return (
+    <>
     <div className="space-y-5">
       <Card className="p-6">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
@@ -177,11 +180,22 @@ export function AgentDetailPage() {
 
           <label className="space-y-2 xl:col-span-2">
             <span className="text-xs font-medium tracking-[0.08em] text-muted-foreground">作業ディレクトリ</span>
-            <Input
-              value={config.cwd ?? ""}
-              onChange={(event) => setConfig((current) => ({ ...current, cwd: event.target.value }))}
-              placeholder="例: C:\\Users\\coli8\\.openclaw\\workspace"
-            />
+            <div className="flex gap-2">
+              <Input
+                value={config.cwd ?? ""}
+                onChange={(event) => setConfig((current) => ({ ...current, cwd: event.target.value }))}
+                placeholder="例: C:\\Users\\coli8\\.openclaw\\workspace"
+                className="flex-1"
+              />
+              <button
+                type="button"
+                onClick={() => setShowDirPicker(true)}
+                className="shrink-0 rounded-[10px] border border-[var(--glass-border)] bg-[var(--glass-bg)] px-3 text-muted-foreground transition hover:text-foreground"
+                title="フォルダを選択"
+              >
+                <FolderOpen size={16} />
+              </button>
+            </div>
           </label>
         </div>
 
@@ -274,5 +288,13 @@ export function AgentDetailPage() {
         </Card>
       </div>
     </div>
+
+    <DirectoryPicker
+      open={showDirPicker}
+      onClose={() => setShowDirPicker(false)}
+      onSelect={(p) => setConfig((c) => ({ ...c, cwd: p }))}
+      initialPath={config.cwd || "C:\\"}
+    />
+    </>
   );
 }

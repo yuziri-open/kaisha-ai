@@ -1,5 +1,16 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
+
+const IMAGE_EXTENSIONS = /\.(png|jpg|jpeg|gif|webp)$/i;
+const ATTACHMENT_PATTERN = /\[添付ファイル:\s*(\/uploads\/[^\s)]+)(?:\s*\([^)]*\))?\]/g;
+
+function ImageModal({ src, onClose }: { src: string; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={onClose}>
+      <img src={src} alt="" className="max-h-[85vh] max-w-[90vw] rounded-[18px] object-contain shadow-2xl" />
+    </div>
+  );
+}
 
 type Block =
   | { type: "paragraph"; text: string }
@@ -91,8 +102,59 @@ interface MarkdownMessageProps {
 
 export function MarkdownMessage({ content, className }: MarkdownMessageProps) {
   const blocks = parseBlocks(content);
+  const [modalImage, setModalImage] = useState<string | null>(null);
+
+  const renderParagraphWithImages = (text: string, blockIndex: number) => {
+    // Replace attachment patterns with inline images
+    const parts: ReactNode[] = [];
+    let lastIndex = 0;
+    const regex = new RegExp(ATTACHMENT_PATTERN.source, "g");
+    let match: RegExpExecArray | null;
+
+    while ((match = regex.exec(text)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push(
+          <span key={`t-${blockIndex}-${lastIndex}`}>
+            {renderInline(text.slice(lastIndex, match.index))}
+          </span>,
+        );
+      }
+      const url = match[1];
+      if (IMAGE_EXTENSIONS.test(url)) {
+        parts.push(
+          <img
+            key={`img-${blockIndex}-${match.index}`}
+            src={url}
+            alt=""
+            className="my-2 max-h-64 cursor-pointer rounded-[14px] border border-white/10 object-contain"
+            onClick={() => setModalImage(url)}
+          />,
+        );
+      } else {
+        parts.push(
+          <a
+            key={`file-${blockIndex}-${match.index}`}
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 rounded-[8px] bg-white/10 px-2 py-1 text-xs text-[#007AFF] hover:bg-white/20"
+          >
+            📎 {url.split("/").pop()}
+          </a>,
+        );
+      }
+      lastIndex = match.index + match[0].length;
+    }
+
+    if (lastIndex < text.length) {
+      parts.push(<span key={`t-${blockIndex}-end`}>{renderInline(text.slice(lastIndex))}</span>);
+    }
+
+    return parts.length > 0 ? parts : renderInline(text);
+  };
 
   return (
+    <>
     <div className={cn("space-y-3 text-sm leading-7", className)}>
       {blocks.map((block, index) => {
         if (block.type === "code") {
@@ -112,10 +174,12 @@ export function MarkdownMessage({ content, className }: MarkdownMessageProps) {
 
         return (
           <p key={`${block.type}-${index}`} className="whitespace-pre-wrap break-words">
-            {renderInline(block.text)}
+            {renderParagraphWithImages(block.text, index)}
           </p>
         );
       })}
     </div>
+    {modalImage ? <ImageModal src={modalImage} onClose={() => setModalImage(null)} /> : null}
+    </>
   );
 }
