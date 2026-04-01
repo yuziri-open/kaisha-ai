@@ -78,7 +78,8 @@ export async function executeCodex(options: ExecuteCodexOptions): Promise<CodexE
   const fullAuto = options.config?.fullAuto ?? true;
   const timeoutSec = options.config?.timeoutSec ?? DEFAULT_TIMEOUT_SEC;
   const startedAt = new Date().toISOString();
-  const args = ["exec", prompt, "--model", model];
+  // Use "-" so prompt is read from stdin (avoids Windows CLI encoding issues with Japanese)
+  const args = ["exec", "-", "--model", model];
 
   if (fullAuto) {
     args.push("--full-auto");
@@ -103,6 +104,12 @@ export async function executeCodex(options: ExecuteCodexOptions): Promise<CodexE
     });
 
     if (options.runId) registerProcess(options.runId, child);
+
+    // Write prompt to stdin and close it
+    if (child.stdin) {
+      child.stdin.write(prompt);
+      child.stdin.end();
+    }
 
     const complete = async (payload: Omit<CodexExecutionResult, "output">) => {
       if (finished) return;

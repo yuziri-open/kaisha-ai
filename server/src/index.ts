@@ -98,11 +98,18 @@ if (existsSync(path.join(config.uiDistPath, "index.html"))) {
 const server = app.listen(config.port, config.host, () => {
   heartbeat.start();
   scheduler.start();
+  // Clean up stale "running"/"pending" runs from previous crashes
+  db.prepare(`UPDATE runs SET status = 'failed', output = 'サーバー再起動によりキャンセルされました。', finished_at = datetime('now') WHERE status IN ('running', 'pending')`).run();
   console.log(`[kaisha-ai] server listening on http://${config.host}:${config.port}`);
 });
 
-process.on("SIGINT", () => {
+function shutdown() {
   heartbeat.stop();
   scheduler.stop();
   server.close(() => process.exit(0));
-});
+  // Force exit after 3s if server.close hangs
+  setTimeout(() => process.exit(0), 3000);
+}
+
+process.on("SIGINT", shutdown);
+process.on("SIGTERM", shutdown);
