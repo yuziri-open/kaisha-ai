@@ -1,7 +1,10 @@
 node_modules
 dist
 .turbo
-server/data
+server/data/*
+!server/data/skills/
+!server/data/skills/.gitkeep
+!server/data/skills/*.md
 data
 ui/dist
 *.log
