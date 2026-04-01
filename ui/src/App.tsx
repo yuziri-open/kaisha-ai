@@ -10,6 +10,7 @@ import { RoutinesPage } from "@/pages/Routines";
 import { SettingsPage } from "@/pages/Settings";
 import { TaskDetailPage } from "@/pages/TaskDetail";
 import { TasksPage } from "@/pages/Tasks";
+import { OrgPage } from "@/pages/Org";
 
 export function App() {
   return (
@@ -21,6 +22,7 @@ export function App() {
         <Route path="/tasks" element={<TasksPage />} />
         <Route path="/tasks/:taskId" element={<TaskDetailPage />} />
         <Route path="/goals" element={<GoalsPage />} />
+        <Route path="/org" element={<OrgPage />} />
         <Route path="/routines" element={<RoutinesPage />} />
         <Route path="/costs" element={<CostsPage />} />
         <Route path="/approvals" element={<ApprovalsPage />} />
