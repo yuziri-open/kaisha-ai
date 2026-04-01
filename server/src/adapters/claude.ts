@@ -4,15 +4,14 @@ import path from "node:path";
 import type { ClaudeAdapterConfig } from "../types.js";
 import type { CodexExecutionResult, CodexOutputEvent } from "./codex.js";
 
-// Windows では claude.cmd のフルパスを使用してPATH問題を回避
+// Windows では claude.exe のフルパスを使用してPATH問題を回避
 const CLAUDE_BIN =
   os.platform() === "win32"
     ? path.join(
         os.homedir(),
-        "AppData",
-        "Roaming",
-        "npm",
-        "claude.cmd",
+        ".local",
+        "bin",
+        "claude.exe",
       )
     : "claude";
 
